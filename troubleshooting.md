@@ -623,3 +623,17 @@ Kubernetes GPU capacity/allocatable: 2/2
 임시 검증 Pod는 확인 직후 삭제했다. 표준 NVIDIA Device Plugin은 단일 노드 안에서 물리 GPU 인덱스 `0/1` 자체를 영구 고정하지 않으므로 재시작 시 UUID 순서는 바뀔 수 있다. 현재 구성의 보장은 Triton과 Training Job이 각각 GPU 리소스 하나를 요청하여 동시에 서로 다른 GPU를 점유한다는 것이다. Production Triton에는 높은 PriorityClass를 적용했고, batch 학습은 수동 승인 후에만 실행한다.
 
 Rollback은 Git의 이전 trainer 태그와 Kubernetes 선언으로 되돌린 뒤 Argo CD를 다시 동기화하는 방식으로 수행한다. S3 모델 버전과 ECR immutable 이미지는 덮어쓰거나 삭제하지 않는다.
+
+## 16. Candidate GPU 평가 단계
+
+학습 완료 상태인 `EVALUATING` Candidate를 Production과 비교하는 평가 단계를 추가했다.
+
+```text
+pipeline/evaluate_candidate.py
+k8s/evaluation-pipeline.yaml
+scripts/evaluate-candidate.sh
+```
+
+평가 Job은 Candidate ONNX를 S3에서 내려받고 CUDA Execution Provider로 워밍업 10회와 측정 50회를 실행한다. 학습 지표와 p95 지연시간을 `safety-model-evaluation-policy` ConfigMap의 설정값으로 판정하고 `evaluation_report.json`을 Candidate S3 경로에 저장한다. 통과 상태는 `EVALUATION_PASSED`, 정책 미달은 `EVALUATION_REJECTED`, 실행 오류는 `EVALUATION_ERROR`로 기록한다.
+
+평가 템플릿도 `suspend: true`이므로 Candidate가 없는 현재는 Job이 실행되지 않는다. Argo CD 상태는 `Synced / Healthy`이며 Training과 Evaluation 이미지 모두 `sha-e597ec0545baa2a0b17535c4b54acbc97882a2b2`로 고정했다. 평가 통과는 배포 승인이 아니며 다음 Model Conversion/Promotion 단계 전까지 Production v1은 변경되지 않는다.
