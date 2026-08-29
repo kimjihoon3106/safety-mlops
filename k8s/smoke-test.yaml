@@ -24,7 +24,7 @@ spec:
               volumeMounts: [{name: test, mountPath: /test}]
           containers:
             - name: smoke-test
-              image: INFERENCE_API_IMAGE
+              image: 323974325951.dkr.ecr.ap-northeast-2.amazonaws.com/safety-mlops/inference-api@sha256:e0242473fe9ddb53a7898ee94a505b38366b4f951a41880cb25ecd1a7535dfd7
               command: ["python", "/app/smoke_test.py"]
               env:
                 - {name: TRITON_URL, value: "http://triton:8000"}

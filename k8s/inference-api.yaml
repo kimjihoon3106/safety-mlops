@@ -17,7 +17,7 @@ spec:
         - name: ecr-registry
       containers:
         - name: api
-          image: 323974325951.dkr.ecr.ap-northeast-2.amazonaws.com/safety-mlops/inference-api:sha-a52ceb5d7b12
+          image: 323974325951.dkr.ecr.ap-northeast-2.amazonaws.com/safety-mlops/inference-api@sha256:e0242473fe9ddb53a7898ee94a505b38366b4f951a41880cb25ecd1a7535dfd7
           imagePullPolicy: IfNotPresent
           env:
             - name: TRITON_URL
