@@ -27,23 +27,23 @@ jobs:
         include:
           - name: inference-api
             repository: inference-api
-            tag-prefix: sha-
+            tag_prefix: sha-
             dockerfile: docker/inference-api/Dockerfile
           - name: dataset-watcher
             repository: dataset-watcher
-            tag-prefix: sha-
+            tag_prefix: sha-
             dockerfile: docker/dataset-watcher/Dockerfile
           - name: mlflow
             repository: mlflow
-            tag-prefix: sha-
+            tag_prefix: sha-
             dockerfile: docker/mlflow/Dockerfile
           - name: trainer
             repository: trainer
-            tag-prefix: sha-
+            tag_prefix: sha-
             dockerfile: docker/trainer/Dockerfile
           - name: model-operator
             repository: trainer
-            tag-prefix: model-operator-sha-
+            tag_prefix: model-operator-sha-
             dockerfile: docker/model-operator/Dockerfile
     steps:
       - uses: actions/checkout@v4
@@ -59,6 +59,6 @@ jobs:
           context: .
           file: ${{ matrix.dockerfile }}
           push: true
-          tags: ${{ env.ECR_REGISTRY }}/safety-mlops/${{ matrix.repository }}:${{ matrix.tag-prefix }}${{ github.sha }}
+          tags: ${{ env.ECR_REGISTRY }}/safety-mlops/${{ matrix.repository }}:${{ matrix.tag_prefix }}${{ github.sha }}
           cache-from: type=gha,scope=${{ matrix.name }}
           cache-to: type=gha,mode=max,scope=${{ matrix.name }}
