@@ -13,6 +13,40 @@ spec:
       labels:
         app: triton
     spec:
+      initContainers:
+        - name: model-sync
+          image: amazon/aws-cli:2.31.22
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -ec
+            - |
+              mkdir -p "/models/${TRITON_MODEL_NAME}/${TRITON_MODEL_VERSION}"
+              aws s3 cp "${MODEL_URI}" "/models/${TRITON_MODEL_NAME}/${TRITON_MODEL_VERSION}/model.plan" --only-show-errors
+              aws s3 cp "${CONFIG_URI}" "/models/${TRITON_MODEL_NAME}/config.pbtxt" --only-show-errors
+              echo "${MODEL_SHA256}  /models/${TRITON_MODEL_NAME}/${TRITON_MODEL_VERSION}/model.plan" | sha256sum -c -
+          envFrom:
+            - configMapRef:
+                name: safety-model-release
+          env:
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: aws-credentials
+                  key: AWS_ACCESS_KEY_ID
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: aws-credentials
+                  key: AWS_SECRET_ACCESS_KEY
+            - name: AWS_DEFAULT_REGION
+              valueFrom:
+                secretKeyRef:
+                  name: aws-credentials
+                  key: AWS_DEFAULT_REGION
+          volumeMounts:
+            - name: model-repository
+              mountPath: /models
       containers:
         - name: triton
           image: nvcr.io/nvidia/tritonserver:25.10-py3
@@ -53,9 +87,7 @@ spec:
               readOnly: true
       volumes:
         - name: model-repository
-          hostPath:
-            path: /home/ubuntu/mlops-stack/triton/model-repository
-            type: Directory
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service

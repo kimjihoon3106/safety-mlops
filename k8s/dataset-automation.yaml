@@ -55,11 +55,13 @@ spec:
       template:
         spec:
           serviceAccountName: dataset-watcher
+          imagePullSecrets:
+            - name: ecr-registry
           restartPolicy: Never
           containers:
             - name: watcher
-              image: dataset-watcher:1.0.0
-              imagePullPolicy: Never
+              image: 323974325951.dkr.ecr.ap-northeast-2.amazonaws.com/safety-mlops/dataset-watcher:sha-a52ceb5d7b12
+              imagePullPolicy: IfNotPresent
               env:
                 - name: NAMESPACE
                   value: mlops
@@ -95,3 +97,90 @@ spec:
                   memory: 128Mi
                 limits:
                   memory: 512Mi
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ecr-secret-refresher
+  namespace: mlops
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: ecr-secret-refresher
+  namespace: mlops
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: ["ecr-registry"]
+    verbs: ["get", "update"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: ecr-secret-refresher
+  namespace: mlops
+subjects:
+  - kind: ServiceAccount
+    name: ecr-secret-refresher
+    namespace: mlops
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: ecr-secret-refresher
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: ecr-secret-refresher
+  namespace: mlops
+spec:
+  schedule: "7 */6 * * *"
+  timeZone: Asia/Seoul
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      ttlSecondsAfterFinished: 86400
+      template:
+        spec:
+          serviceAccountName: ecr-secret-refresher
+          imagePullSecrets:
+            - name: ecr-registry
+          restartPolicy: Never
+          containers:
+            - name: refresher
+              image: 323974325951.dkr.ecr.ap-northeast-2.amazonaws.com/safety-mlops/dataset-watcher:sha-a52ceb5d7b12
+              imagePullPolicy: IfNotPresent
+              command: ["python", "/app/ecr_secret_refresh.py"]
+              env:
+                - name: NAMESPACE
+                  value: mlops
+                - name: ECR_SECRET_NAME
+                  value: ecr-registry
+                - name: AWS_ACCESS_KEY_ID
+                  valueFrom:
+                    secretKeyRef:
+                      name: aws-credentials
+                      key: AWS_ACCESS_KEY_ID
+                - name: AWS_SECRET_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: aws-credentials
+                      key: AWS_SECRET_ACCESS_KEY
+                - name: AWS_DEFAULT_REGION
+                  valueFrom:
+                    secretKeyRef:
+                      name: aws-credentials
+                      key: AWS_DEFAULT_REGION
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  memory: 256Mi

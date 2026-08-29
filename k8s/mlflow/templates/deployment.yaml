@@ -14,6 +14,8 @@ spec:
         app.kubernetes.io/name: mlflow
         app.kubernetes.io/instance: {{ .Release.Name }}
     spec:
+      imagePullSecrets:
+{{ toYaml .Values.imagePullSecrets | indent 8 }}
       containers:
         - name: mlflow
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"

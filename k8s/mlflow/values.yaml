@@ -1,7 +1,10 @@
 image:
-  repository: mlflow-s3
-  tag: "3.5.1"
-  pullPolicy: Never
+  repository: 323974325951.dkr.ecr.ap-northeast-2.amazonaws.com/safety-mlops/mlflow
+  tag: "sha-a52ceb5d7b12"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets:
+  - name: ecr-registry
 
 replicaCount: 1
 

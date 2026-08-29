@@ -4,6 +4,13 @@ metadata:
   name: safety-model-release
   namespace: mlops
 data:
+  MODEL_NAME: safety
+  TRITON_MODEL_NAME: yolov8
+  MODEL_VERSION: v1
+  TRITON_MODEL_VERSION: "1"
+  MODEL_URI: s3://mlops-safety-323974325951-ap-northeast-2/models/safety/v1/model.plan
+  CONFIG_URI: s3://mlops-safety-323974325951-ap-northeast-2/models/safety/v1/config.pbtxt
+  MODEL_SHA256: 94b4284c7df2d8535428de71a74fffd7e0b01c70e97100e30593b8aa378544a5
   model.yaml: |
     model:
       name: safety
@@ -11,4 +18,3 @@ data:
       artifact: s3://mlops-safety-323974325951-ap-northeast-2/models/safety/v1/model.plan
       configArtifact: s3://mlops-safety-323974325951-ap-northeast-2/models/safety/v1/config.pbtxt
       sha256: 94b4284c7df2d8535428de71a74fffd7e0b01c70e97100e30593b8aa378544a5
-

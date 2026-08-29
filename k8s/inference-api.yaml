@@ -13,10 +13,12 @@ spec:
       labels:
         app: inference-api
     spec:
+      imagePullSecrets:
+        - name: ecr-registry
       containers:
         - name: api
-          image: safety-inference-api:1.0.0
-          imagePullPolicy: Never
+          image: 323974325951.dkr.ecr.ap-northeast-2.amazonaws.com/safety-mlops/inference-api:sha-a52ceb5d7b12
+          imagePullPolicy: IfNotPresent
           env:
             - name: TRITON_URL
               value: http://triton.mlops.svc.cluster.local:8000
