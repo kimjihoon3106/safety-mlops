@@ -13,6 +13,7 @@ spec:
       labels:
         app: triton
     spec:
+      priorityClassName: mlops-serving-high
       initContainers:
         - name: model-sync
           image: amazon/aws-cli:2.31.22

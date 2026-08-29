@@ -1,0 +1,119 @@
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: mlops-serving-high
+value: 100000
+globalDefault: false
+description: Keep production Triton serving ahead of batch training.
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: safety-trainer
+  namespace: mlops
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: safety-trainer
+  namespace: mlops
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: ["training-candidate"]
+    verbs: ["get", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: safety-trainer
+  namespace: mlops
+subjects:
+  - kind: ServiceAccount
+    name: safety-trainer
+    namespace: mlops
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: safety-trainer
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: safety-training-template
+  namespace: mlops
+spec:
+  schedule: "0 0 31 2 *"
+  suspend: true
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      ttlSecondsAfterFinished: 604800
+      template:
+        metadata:
+          labels:
+            app: safety-training
+        spec:
+          serviceAccountName: safety-trainer
+          imagePullSecrets:
+            - name: ecr-registry
+          restartPolicy: Never
+          containers:
+            - name: trainer
+              image: 323974325951.dkr.ecr.ap-northeast-2.amazonaws.com/safety-mlops/trainer:BUILD_TAG
+              imagePullPolicy: IfNotPresent
+              env:
+                - name: DATASET_S3_URI
+                  valueFrom:
+                    configMapKeyRef:
+                      name: training-candidate
+                      key: s3_uri
+                - name: DATASET_VERSION
+                  valueFrom:
+                    configMapKeyRef:
+                      name: training-candidate
+                      key: dataset_version
+                - name: S3_BUCKET
+                  value: mlops-safety-323974325951-ap-northeast-2
+                - name: MLFLOW_TRACKING_URI
+                  value: http://mlflow.mlops.svc.cluster.local:5000
+                - name: BASE_MODEL
+                  value: yolov8s.pt
+                - name: EPOCHS
+                  value: "50"
+                - name: IMAGE_SIZE
+                  value: "640"
+                - name: BATCH_SIZE
+                  value: "8"
+                - name: AWS_ACCESS_KEY_ID
+                  valueFrom:
+                    secretKeyRef:
+                      name: aws-credentials
+                      key: AWS_ACCESS_KEY_ID
+                - name: AWS_SECRET_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: aws-credentials
+                      key: AWS_SECRET_ACCESS_KEY
+                - name: AWS_DEFAULT_REGION
+                  valueFrom:
+                    secretKeyRef:
+                      name: aws-credentials
+                      key: AWS_DEFAULT_REGION
+              resources:
+                requests:
+                  cpu: "2"
+                  memory: 4Gi
+                  nvidia.com/gpu: "1"
+                limits:
+                  memory: 7Gi
+                  nvidia.com/gpu: "1"
+              volumeMounts:
+                - name: work
+                  mountPath: /work
+          volumes:
+            - name: work
+              emptyDir:
+                sizeLimit: 8Gi
+
