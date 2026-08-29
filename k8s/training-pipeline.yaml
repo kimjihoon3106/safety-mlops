@@ -61,7 +61,7 @@ spec:
           restartPolicy: Never
           containers:
             - name: trainer
-              image: 323974325951.dkr.ecr.ap-northeast-2.amazonaws.com/safety-mlops/trainer:sha-1e1113695d6446f9f2ad75105cafdb1332e5bb8e
+              image: 323974325951.dkr.ecr.ap-northeast-2.amazonaws.com/safety-mlops/trainer:sha-e597ec0545baa2a0b17535c4b54acbc97882a2b2
               imagePullPolicy: IfNotPresent
               env:
                 - name: DATASET_S3_URI

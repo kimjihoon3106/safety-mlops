@@ -22,7 +22,7 @@ spec:
           restartPolicy: Never
           containers:
             - name: evaluator
-              image: TRAINER_IMAGE
+              image: 323974325951.dkr.ecr.ap-northeast-2.amazonaws.com/safety-mlops/trainer:sha-e597ec0545baa2a0b17535c4b54acbc97882a2b2
               imagePullPolicy: IfNotPresent
               command: ["python", "/app/evaluate_candidate.py"]
               env:
@@ -32,7 +32,10 @@ spec:
                       name: training-candidate
                       key: candidate_s3_uri
                 - name: PRODUCTION_METADATA_URI
-                  value: s3://mlops-safety-323974325951-ap-northeast-2/models/safety/v1/model_metadata.json
+                  valueFrom:
+                    configMapKeyRef:
+                      name: safety-model-release
+                      key: METADATA_URI
                 - name: AWS_ACCESS_KEY_ID
                   valueFrom:
                     secretKeyRef:

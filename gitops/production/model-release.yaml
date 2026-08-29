@@ -10,6 +10,7 @@ data:
   TRITON_MODEL_VERSION: "1"
   MODEL_URI: s3://mlops-safety-323974325951-ap-northeast-2/models/safety/v1/model.plan
   CONFIG_URI: s3://mlops-safety-323974325951-ap-northeast-2/models/safety/v1/config.pbtxt
+  METADATA_URI: s3://mlops-safety-323974325951-ap-northeast-2/models/safety/v1/model_metadata.json
   MODEL_SHA256: 94b4284c7df2d8535428de71a74fffd7e0b01c70e97100e30593b8aa378544a5
   model.yaml: |
     model:

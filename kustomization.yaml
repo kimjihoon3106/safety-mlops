@@ -5,5 +5,6 @@ resources:
   - k8s/triton.yaml
   - k8s/dataset-automation.yaml
   - k8s/training-pipeline.yaml
+  - k8s/evaluation-pipeline.yaml
   - gitops/production/model-release.yaml
   - gitops/policies/evaluation-policy.yaml
