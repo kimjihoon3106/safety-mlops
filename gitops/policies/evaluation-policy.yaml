@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: safety-model-evaluation-policy
+  namespace: mlops
+data:
+  policy.yaml: |
+    metrics:
+      map50:
+        minimum_delta: 0.0
+      map50_95:
+        minimum_delta: 0.0
+      recall:
+        minimum: 0.50
+      latency_ms:
+        maximum: 150.0
+    required_artifacts:
+      - best.pt
+      - model.onnx
+      - model.plan
+      - model_metadata.json
+

@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mlflow
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: mlflow
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      containers:
+        - name: mlflow
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - mlflow
+            - server
+            - --backend-store-uri
+            - sqlite:////mlflow/db/mlflow.db
+            - --host
+            - 0.0.0.0
+            - --port
+            - "{{ .Values.service.port }}"
+            - --serve-artifacts
+            - --artifacts-destination
+            - s3://{{ required "s3.bucket is required" .Values.s3.bucket }}/{{ .Values.s3.artifactPrefix }}
+          env:
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.s3.credentialsSecret }}
+                  key: AWS_ACCESS_KEY_ID
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.s3.credentialsSecret }}
+                  key: AWS_SECRET_ACCESS_KEY
+            - name: AWS_DEFAULT_REGION
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.s3.credentialsSecret }}
+                  key: AWS_DEFAULT_REGION
+            - name: AWS_REGION
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.s3.credentialsSecret }}
+                  key: AWS_REGION
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          volumeMounts:
+            - name: database
+              mountPath: /mlflow/db
+          resources:
+{{ toYaml .Values.resources | indent 12 }}
+      volumes:
+        - name: database
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}

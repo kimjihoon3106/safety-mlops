@@ -1,0 +1,17 @@
+.DS_Store
+.env
+.env.*
+!.env.example
+.kube/
+.codex-tmp/
+outputs/
+data/
+*.pt
+*.onnx
+*.engine
+*.plan
+*.key
+*.pem
+__pycache__/
+*.pyc
+

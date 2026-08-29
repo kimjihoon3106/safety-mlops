@@ -1,0 +1,6 @@
+apiVersion: v2
+name: mlflow
+description: Minimal MLflow tracking server backed by MinIO artifacts
+type: application
+version: 0.1.0
+appVersion: "3.5.1"

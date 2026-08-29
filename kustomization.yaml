@@ -1,0 +1,9 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - k8s/inference-api.yaml
+  - k8s/triton.yaml
+  - k8s/dataset-automation.yaml
+  - gitops/production/model-release.yaml
+  - gitops/policies/evaluation-policy.yaml
+

@@ -1,0 +1,97 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: dataset-watcher
+  namespace: mlops
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: dataset-watcher
+  namespace: mlops
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "create", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: dataset-watcher
+  namespace: mlops
+subjects:
+  - kind: ServiceAccount
+    name: dataset-watcher
+    namespace: mlops
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: dataset-watcher
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: roboflow-dataset-state
+  namespace: mlops
+data:
+  last_processed_version: "30"
+  last_status: "CURRENT"
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: roboflow-dataset-watcher
+  namespace: mlops
+spec:
+  schedule: "17 */6 * * *"
+  timeZone: Asia/Seoul
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      ttlSecondsAfterFinished: 86400
+      template:
+        spec:
+          serviceAccountName: dataset-watcher
+          restartPolicy: Never
+          containers:
+            - name: watcher
+              image: dataset-watcher:1.0.0
+              imagePullPolicy: Never
+              env:
+                - name: NAMESPACE
+                  value: mlops
+                - name: ROBOFLOW_WORKSPACE
+                  value: roboflow-universe-projects
+                - name: ROBOFLOW_PROJECT
+                  value: construction-site-safety
+                - name: S3_BUCKET
+                  value: mlops-safety-323974325951-ap-northeast-2
+                - name: ROBOFLOW_API_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: roboflow-credentials
+                      key: ROBOFLOW_API_KEY
+                - name: AWS_ACCESS_KEY_ID
+                  valueFrom:
+                    secretKeyRef:
+                      name: aws-credentials
+                      key: AWS_ACCESS_KEY_ID
+                - name: AWS_SECRET_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: aws-credentials
+                      key: AWS_SECRET_ACCESS_KEY
+                - name: AWS_DEFAULT_REGION
+                  valueFrom:
+                    secretKeyRef:
+                      name: aws-credentials
+                      key: AWS_DEFAULT_REGION
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 128Mi
+                limits:
+                  memory: 512Mi

@@ -1,0 +1,19 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: safety-mlops-platform
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/kimjihoon3106/safety-mlops.git
+    targetRevision: main
+    path: .
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: mlops
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+      - PruneLast=true
+

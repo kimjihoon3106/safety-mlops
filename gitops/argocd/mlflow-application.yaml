@@ -1,0 +1,24 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: safety-mlops-mlflow
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/kimjihoon3106/safety-mlops.git
+    targetRevision: main
+    path: k8s/mlflow
+    helm:
+      releaseName: mlflow
+      parameters:
+        - name: s3.bucket
+          value: mlops-safety-323974325951-ap-northeast-2
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: mlops
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+      - PruneLast=true
+

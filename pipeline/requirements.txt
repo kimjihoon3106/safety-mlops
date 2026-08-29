@@ -1,0 +1,6 @@
+ultralytics
+onnx
+onnxruntime
+boto3
+mlflow==3.5.1
+requests

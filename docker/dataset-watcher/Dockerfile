@@ -1,0 +1,7 @@
+FROM python:3.10-slim
+
+WORKDIR /app
+RUN pip install --no-cache-dir requests==2.32.5 pyyaml==6.0.3 boto3==1.43.82 kubernetes==34.1.0 pillow==12.1.1
+COPY pipeline/dataset_watcher.py /app/dataset_watcher.py
+USER 65532:65532
+CMD ["python", "/app/dataset_watcher.py"]

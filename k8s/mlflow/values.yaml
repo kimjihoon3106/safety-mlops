@@ -1,0 +1,26 @@
+image:
+  repository: mlflow-s3
+  tag: "3.5.1"
+  pullPolicy: Never
+
+replicaCount: 1
+
+service:
+  type: ClusterIP
+  port: 5000
+
+persistence:
+  storageClass: local-path
+  size: 1Gi
+
+s3:
+  bucket: ""
+  artifactPrefix: artifacts/mlflow
+  credentialsSecret: aws-credentials
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    memory: 1Gi

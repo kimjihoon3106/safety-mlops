@@ -1,0 +1,31 @@
+name: "yolov8"
+platform: "tensorrt_plan"
+max_batch_size: 8
+
+input [
+  {
+    name: "images"
+    data_type: TYPE_FP32
+    dims: [3, -1, -1]
+  }
+]
+
+output [
+  {
+    name: "output0"
+    data_type: TYPE_FP32
+    dims: [29, -1]
+  }
+]
+
+instance_group [
+  {
+    kind: KIND_GPU
+    count: 1
+  }
+]
+
+dynamic_batching {
+  preferred_batch_size: [1, 4, 8]
+  max_queue_delay_microseconds: 1000
+}

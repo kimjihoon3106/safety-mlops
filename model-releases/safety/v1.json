@@ -1,0 +1,26 @@
+{
+  "model_version": "v1",
+  "model_type": "YOLOv8n",
+  "dataset_version": "v30",
+  "classes": 25,
+  "epochs": 5,
+  "precision": "FP16",
+  "input_size": [640, 640],
+  "dynamic_profile": {
+    "min": [1, 3, 320, 320],
+    "opt": [4, 3, 640, 640],
+    "max": [8, 3, 640, 640]
+  },
+  "metrics": {
+    "mAP50": 0.220,
+    "mAP50_95": 0.144,
+    "precision": 0.656,
+    "recall": 0.227
+  },
+  "input_tensor": "images",
+  "output_tensor": "output0",
+  "engine_sha256": "94b4284c7df2d8535428de71a74fffd7e0b01c70e97100e30593b8aa378544a5",
+  "triton_image": "nvcr.io/nvidia/tritonserver:25.10-py3",
+  "mlflow_run_id": "b9b91e8f7b5547999260d161c991c1d7"
+}
+
