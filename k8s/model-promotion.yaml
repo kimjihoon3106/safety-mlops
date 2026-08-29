@@ -1,0 +1,75 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: safety-model-operator-template
+  namespace: mlops
+spec:
+  schedule: "0 0 31 2 *"
+  suspend: true
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      ttlSecondsAfterFinished: 604800
+      template:
+        metadata:
+          labels:
+            app: safety-model-operator
+        spec:
+          serviceAccountName: safety-trainer
+          imagePullSecrets: [{name: ecr-registry}]
+          restartPolicy: Never
+          containers:
+            - name: operator
+              image: MODEL_OPERATOR_IMAGE
+              env:
+                - name: ACTION
+                  value: convert
+                - name: AWS_ACCESS_KEY_ID
+                  valueFrom: {secretKeyRef: {name: aws-credentials, key: AWS_ACCESS_KEY_ID}}
+                - name: AWS_SECRET_ACCESS_KEY
+                  valueFrom: {secretKeyRef: {name: aws-credentials, key: AWS_SECRET_ACCESS_KEY}}
+                - name: AWS_DEFAULT_REGION
+                  valueFrom: {secretKeyRef: {name: aws-credentials, key: AWS_DEFAULT_REGION}}
+              resources:
+                requests: {cpu: "1", memory: 2Gi, nvidia.com/gpu: "1"}
+                limits: {memory: 5Gi, nvidia.com/gpu: "1"}
+              volumeMounts: [{name: work, mountPath: /work}]
+          volumes:
+            - name: work
+              emptyDir: {sizeLimit: 4Gi}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: safety-s3-promotion-template
+  namespace: mlops
+spec:
+  schedule: "0 0 31 2 *"
+  suspend: true
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      ttlSecondsAfterFinished: 604800
+      template:
+        metadata:
+          labels: {app: safety-s3-promotion}
+        spec:
+          serviceAccountName: safety-trainer
+          imagePullSecrets: [{name: ecr-registry}]
+          restartPolicy: Never
+          containers:
+            - name: operator
+              image: MODEL_OPERATOR_IMAGE
+              env:
+                - {name: ACTION, value: promote}
+                - name: AWS_ACCESS_KEY_ID
+                  valueFrom: {secretKeyRef: {name: aws-credentials, key: AWS_ACCESS_KEY_ID}}
+                - name: AWS_SECRET_ACCESS_KEY
+                  valueFrom: {secretKeyRef: {name: aws-credentials, key: AWS_SECRET_ACCESS_KEY}}
+                - name: AWS_DEFAULT_REGION
+                  valueFrom: {secretKeyRef: {name: aws-credentials, key: AWS_DEFAULT_REGION}}
+              resources:
+                requests: {cpu: 100m, memory: 256Mi}
+                limits: {memory: 1Gi}
