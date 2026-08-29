@@ -1,0 +1,71 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: safety-evaluation-template
+  namespace: mlops
+spec:
+  schedule: "0 0 31 2 *"
+  suspend: true
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      ttlSecondsAfterFinished: 604800
+      template:
+        metadata:
+          labels:
+            app: safety-evaluation
+        spec:
+          serviceAccountName: safety-trainer
+          imagePullSecrets:
+            - name: ecr-registry
+          restartPolicy: Never
+          containers:
+            - name: evaluator
+              image: TRAINER_IMAGE
+              imagePullPolicy: IfNotPresent
+              command: ["python", "/app/evaluate_candidate.py"]
+              env:
+                - name: CANDIDATE_S3_URI
+                  valueFrom:
+                    configMapKeyRef:
+                      name: training-candidate
+                      key: candidate_s3_uri
+                - name: PRODUCTION_METADATA_URI
+                  value: s3://mlops-safety-323974325951-ap-northeast-2/models/safety/v1/model_metadata.json
+                - name: AWS_ACCESS_KEY_ID
+                  valueFrom:
+                    secretKeyRef:
+                      name: aws-credentials
+                      key: AWS_ACCESS_KEY_ID
+                - name: AWS_SECRET_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: aws-credentials
+                      key: AWS_SECRET_ACCESS_KEY
+                - name: AWS_DEFAULT_REGION
+                  valueFrom:
+                    secretKeyRef:
+                      name: aws-credentials
+                      key: AWS_DEFAULT_REGION
+              resources:
+                requests:
+                  cpu: "1"
+                  memory: 2Gi
+                  nvidia.com/gpu: "1"
+                limits:
+                  memory: 4Gi
+                  nvidia.com/gpu: "1"
+              volumeMounts:
+                - name: policy
+                  mountPath: /policy
+                  readOnly: true
+                - name: work
+                  mountPath: /work
+          volumes:
+            - name: policy
+              configMap:
+                name: safety-model-evaluation-policy
+            - name: work
+              emptyDir:
+                sizeLimit: 3Gi
