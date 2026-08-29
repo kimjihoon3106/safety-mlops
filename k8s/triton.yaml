@@ -12,6 +12,8 @@ spec:
     metadata:
       labels:
         app: triton
+      annotations:
+        safety.mlops/model-version: v1
     spec:
       priorityClassName: mlops-serving-high
       initContainers:

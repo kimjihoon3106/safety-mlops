@@ -12,6 +12,8 @@ spec:
     metadata:
       labels:
         app: inference-api
+      annotations:
+        safety.mlops/model-version: v1
     spec:
       imagePullSecrets:
         - name: ecr-registry

@@ -19,9 +19,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: {ref: main}
+      - run: pip install pyyaml==6.0.3
       - name: Verify expected production version
         run: test "$(python -c 'import yaml; print(yaml.safe_load(open("gitops/production/model-release.yaml"))["data"]["MODEL_VERSION"])')" = "${{ inputs.previous_version }}"
-      - run: pip install pyyaml==6.0.3
       - name: Update desired state
         run: >-
           python pipeline/update_model_release.py
@@ -34,6 +34,6 @@ jobs:
         run: |
           git config user.name safety-mlops-bot
           git config user.email safety-mlops-bot@users.noreply.github.com
-          git add gitops/production/model-release.yaml model-releases/safety/
+          git add gitops/production/model-release.yaml model-releases/safety/ k8s/triton.yaml k8s/inference-api.yaml
           git commit -m "promote: safety ${{ inputs.version }}"
           git push origin HEAD:main
