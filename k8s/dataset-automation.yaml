@@ -60,7 +60,7 @@ spec:
           restartPolicy: Never
           containers:
             - name: watcher
-              image: 323974325951.dkr.ecr.ap-northeast-2.amazonaws.com/safety-mlops/dataset-watcher:sha-a52ceb5d7b12
+              image: 323974325951.dkr.ecr.ap-northeast-2.amazonaws.com/safety-mlops/dataset-watcher:sha-169c469851c0
               imagePullPolicy: IfNotPresent
               env:
                 - name: NAMESPACE
@@ -155,7 +155,7 @@ spec:
           restartPolicy: Never
           containers:
             - name: refresher
-              image: 323974325951.dkr.ecr.ap-northeast-2.amazonaws.com/safety-mlops/dataset-watcher:sha-a52ceb5d7b12
+              image: 323974325951.dkr.ecr.ap-northeast-2.amazonaws.com/safety-mlops/dataset-watcher:sha-169c469851c0
               imagePullPolicy: IfNotPresent
               command: ["python", "/app/ecr_secret_refresh.py"]
               env:
