@@ -10,7 +10,7 @@
       "Condition": {
         "StringEquals": {
           "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
-          "token.actions.githubusercontent.com:sub": "repo:kimjihoon3106/safety-mlops:ref:refs/heads/main"
+          "token.actions.githubusercontent.com:sub": "repo:kimjihoon3106@157591614/safety-mlops@1350575951:ref:refs/heads/main"
         }
       }
     }

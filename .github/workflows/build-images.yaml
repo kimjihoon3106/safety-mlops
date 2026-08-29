@@ -35,13 +35,6 @@ jobs:
             dockerfile: docker/trainer/Dockerfile
     steps:
       - uses: actions/checkout@v4
-      - name: Diagnose OIDC claims
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const token = await core.getIDToken('sts.amazonaws.com')
-            const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString())
-            core.info(JSON.stringify({sub: payload.sub, aud: payload.aud, repository: payload.repository}))
       - uses: aws-actions/configure-aws-credentials@v5
         with:
           role-to-assume: arn:aws:iam::323974325951:role/safety-mlops-github-actions-ecr
