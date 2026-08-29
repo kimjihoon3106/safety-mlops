@@ -61,7 +61,7 @@ spec:
           restartPolicy: Never
           containers:
             - name: trainer
-              image: 323974325951.dkr.ecr.ap-northeast-2.amazonaws.com/safety-mlops/trainer:BUILD_TAG
+              image: 323974325951.dkr.ecr.ap-northeast-2.amazonaws.com/safety-mlops/trainer:sha-1e1113695d6446f9f2ad75105cafdb1332e5bb8e
               imagePullPolicy: IfNotPresent
               env:
                 - name: DATASET_S3_URI
@@ -116,4 +116,3 @@ spec:
             - name: work
               emptyDir:
                 sizeLimit: 8Gi
-
