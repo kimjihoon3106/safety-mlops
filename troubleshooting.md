@@ -583,3 +583,43 @@ kubectl get cronjob roboflow-dataset-watcher -n mlops
 kubectl get configmap roboflow-dataset-state -n mlops -o yaml
 kubectl get configmap training-candidate -n mlops -o yaml
 ```
+
+## 15. ECR, GitOps 및 두 GPU 학습 준비
+
+실행 환경을 역할별로 독립 배포하기 위해 다음 ECR 저장소를 구성했다.
+
+```text
+safety-mlops/inference-api
+safety-mlops/dataset-watcher
+safety-mlops/mlflow
+safety-mlops/trainer
+```
+
+모델 아티팩트는 ECR 이미지에 포함하지 않는다. 컨테이너 실행 코드는 ECR, 모델과 데이터셋은 S3, Kubernetes desired state와 Production 모델 버전은 GitHub `kimjihoon3106/safety-mlops`에서 관리한다. GitHub Actions는 장기 Access Key 대신 AWS OIDC로 인증하고, 각 이미지를 `sha-<git commit>` 형식의 immutable 태그로 ECR에 푸시한다.
+
+학습 이미지는 다음 태그로 고정했다.
+
+```text
+323974325951.dkr.ecr.ap-northeast-2.amazonaws.com/safety-mlops/trainer:sha-1e1113695d6446f9f2ad75105cafdb1332e5bb8e
+```
+
+Argo CD에서 `safety-mlops-platform` Application을 수동 동기화한 결과는 `Synced / Healthy`다. 학습 리소스는 등록됐지만 다음과 같이 중지 상태이므로 승인 없이 학습이 실행되지 않는다.
+
+```text
+CronJob: safety-training-template
+suspend: true
+GPU request/limit: nvidia.com/gpu: 1
+epochs: 50
+```
+
+두 GPU가 동시에 독립적으로 할당되는지도 검증했다. Triton을 실행한 상태에서 GPU 1개를 요청하는 임시 Pod를 생성한 결과 다음 UUID가 각각 노출됐다.
+
+```text
+Triton GPU : GPU-c0b2d031-b2b9-e56c-d7c5-9090d7fcaf51
+Training GPU smoke pod: GPU-b284e483-ca93-aabc-57c1-3b91c2bf3a30
+Kubernetes GPU capacity/allocatable: 2/2
+```
+
+임시 검증 Pod는 확인 직후 삭제했다. 표준 NVIDIA Device Plugin은 단일 노드 안에서 물리 GPU 인덱스 `0/1` 자체를 영구 고정하지 않으므로 재시작 시 UUID 순서는 바뀔 수 있다. 현재 구성의 보장은 Triton과 Training Job이 각각 GPU 리소스 하나를 요청하여 동시에 서로 다른 GPU를 점유한다는 것이다. Production Triton에는 높은 PriorityClass를 적용했고, batch 학습은 수동 승인 후에만 실행한다.
+
+Rollback은 Git의 이전 trainer 태그와 Kubernetes 선언으로 되돌린 뒤 Argo CD를 다시 동기화하는 방식으로 수행한다. S3 모델 버전과 ECR immutable 이미지는 덮어쓰거나 삭제하지 않는다.
