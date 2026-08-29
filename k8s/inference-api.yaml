@@ -22,6 +22,11 @@ spec:
           env:
             - name: TRITON_URL
               value: http://triton.mlops.svc.cluster.local:8000
+            - name: MODEL_VERSION
+              valueFrom:
+                configMapKeyRef:
+                  name: safety-model-release
+                  key: MODEL_VERSION
           ports:
             - name: http
               containerPort: 8080

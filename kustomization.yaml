@@ -6,5 +6,7 @@ resources:
   - k8s/dataset-automation.yaml
   - k8s/training-pipeline.yaml
   - k8s/evaluation-pipeline.yaml
+  - k8s/model-promotion.yaml
+  - k8s/smoke-test.yaml
   - gitops/production/model-release.yaml
   - gitops/policies/evaluation-policy.yaml

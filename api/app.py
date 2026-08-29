@@ -34,6 +34,7 @@ async def detect(image: UploadFile = File(...), confidence: float = 0.25,
         "filename": image.filename,
         "image_size": {"width": source.width, "height": source.height},
         "model": "yolov8",
+        "model_version": os.getenv("MODEL_VERSION", "unknown"),
         "detection_count": len(detections),
         "detections": detections,
     }

@@ -39,6 +39,7 @@ def convert():
     api, cm, data = candidate()
     if data.get("status") != "EVALUATION_PASSED":
         raise RuntimeError(f"expected EVALUATION_PASSED, got {data.get('status')}")
+    patch(api, cm, {"status": "CONVERTING"})
     bucket, prefix = s3_uri(data["candidate_s3_uri"])
     s3 = boto3.client("s3")
     work = Path("/work")
@@ -62,6 +63,7 @@ def promote():
     api, cm, data = candidate()
     if data.get("status") != "READY_FOR_PROMOTION":
         raise RuntimeError(f"expected READY_FOR_PROMOTION, got {data.get('status')}")
+    patch(api, cm, {"status": "PROMOTING"})
     bucket, candidate_prefix = s3_uri(data["candidate_s3_uri"])
     s3 = boto3.client("s3")
     response = s3.list_objects_v2(Bucket=bucket, Prefix="models/safety/", Delimiter="/")
@@ -97,4 +99,13 @@ def promote():
 
 
 if __name__ == "__main__":
-    {"convert": convert, "promote": promote}[os.environ["ACTION"]]()
+    action = os.environ["ACTION"]
+    try:
+        {"convert": convert, "promote": promote}[action]()
+    except Exception as error:
+        try:
+            api, cm, _ = candidate()
+            patch(api, cm, {"status": "CONVERSION_ERROR" if action == "convert" else "PROMOTION_ERROR",
+                            "operator_error": str(error)[:500]})
+        finally:
+            raise

@@ -1,0 +1,39 @@
+name: Promote production model
+on:
+  workflow_dispatch:
+    inputs:
+      version: {description: "Immutable S3 model version", required: true, type: string}
+      previous_version: {description: "Expected current version", required: true, type: string}
+      model_uri: {required: true, type: string}
+      config_uri: {required: true, type: string}
+      metadata_uri: {required: true, type: string}
+      sha256: {required: true, type: string}
+permissions:
+  contents: write
+concurrency:
+  group: production-model-promotion
+  cancel-in-progress: false
+jobs:
+  update-git:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: main}
+      - name: Verify expected production version
+        run: test "$(python -c 'import yaml; print(yaml.safe_load(open("gitops/production/model-release.yaml"))["data"]["MODEL_VERSION"])')" = "${{ inputs.previous_version }}"
+      - run: pip install pyyaml==6.0.3
+      - name: Update desired state
+        run: >-
+          python pipeline/update_model_release.py
+          --version '${{ inputs.version }}'
+          --model-uri '${{ inputs.model_uri }}'
+          --config-uri '${{ inputs.config_uri }}'
+          --metadata-uri '${{ inputs.metadata_uri }}'
+          --sha256 '${{ inputs.sha256 }}'
+      - name: Commit and push
+        run: |
+          git config user.name safety-mlops-bot
+          git config user.email safety-mlops-bot@users.noreply.github.com
+          git add gitops/production/model-release.yaml model-releases/safety/
+          git commit -m "promote: safety ${{ inputs.version }}"
+          git push origin HEAD:main

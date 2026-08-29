@@ -1,0 +1,36 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: safety-smoke-test-template
+  namespace: mlops
+spec:
+  schedule: "0 0 31 2 *"
+  suspend: true
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 300
+      ttlSecondsAfterFinished: 86400
+      template:
+        spec:
+          restartPolicy: Never
+          imagePullSecrets: [{name: ecr-registry}]
+          initContainers:
+            - name: test-image-sync
+              image: amazon/aws-cli:2.31.22
+              command: ["aws", "s3", "cp", "s3://mlops-safety-323974325951-ap-northeast-2/smoke-tests/ppe.jpg", "/test/smoke.jpg", "--only-show-errors"]
+              envFrom: [{secretRef: {name: aws-credentials}}]
+              volumeMounts: [{name: test, mountPath: /test}]
+          containers:
+            - name: smoke-test
+              image: INFERENCE_API_IMAGE
+              command: ["python", "/app/smoke_test.py"]
+              env:
+                - {name: TRITON_URL, value: "http://triton:8000"}
+                - {name: API_URL, value: "http://inference-api:8080"}
+                - name: EXPECTED_MODEL_VERSION
+                  valueFrom: {configMapKeyRef: {name: safety-model-release, key: MODEL_VERSION}}
+                - {name: MAX_LATENCY_MS, value: "5000"}
+              volumeMounts: [{name: test, mountPath: /test, readOnly: true}]
+          volumes: [{name: test, emptyDir: {sizeLimit: 20Mi}}]
