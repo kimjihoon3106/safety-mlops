@@ -21,7 +21,7 @@ spec:
           restartPolicy: Never
           containers:
             - name: operator
-              image: 323974325951.dkr.ecr.ap-northeast-2.amazonaws.com/safety-mlops/trainer@sha256:23616b4003fe8470050e6b6155d791a7a73f27c4d312a4ca6cf8f160a7482bbb
+              image: 323974325951.dkr.ecr.ap-northeast-2.amazonaws.com/safety-mlops/trainer@sha256:8104bcb4d55f6575346b5f2bcdfecbb62df3e6e8b63affbffc316a08e244bbbd
               env:
                 - name: ACTION
                   value: convert
@@ -61,7 +61,7 @@ spec:
           restartPolicy: Never
           containers:
             - name: operator
-              image: 323974325951.dkr.ecr.ap-northeast-2.amazonaws.com/safety-mlops/trainer@sha256:23616b4003fe8470050e6b6155d791a7a73f27c4d312a4ca6cf8f160a7482bbb
+              image: 323974325951.dkr.ecr.ap-northeast-2.amazonaws.com/safety-mlops/trainer@sha256:8104bcb4d55f6575346b5f2bcdfecbb62df3e6e8b63affbffc316a08e244bbbd
               env:
                 - {name: ACTION, value: promote}
                 - name: AWS_ACCESS_KEY_ID
