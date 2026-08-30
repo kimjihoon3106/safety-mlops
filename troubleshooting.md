@@ -637,3 +637,32 @@ scripts/evaluate-candidate.sh
 평가 Job은 Candidate ONNX를 S3에서 내려받고 CUDA Execution Provider로 워밍업 10회와 측정 50회를 실행한다. 학습 지표와 p95 지연시간을 `safety-model-evaluation-policy` ConfigMap의 설정값으로 판정하고 `evaluation_report.json`을 Candidate S3 경로에 저장한다. 통과 상태는 `EVALUATION_PASSED`, 정책 미달은 `EVALUATION_REJECTED`, 실행 오류는 `EVALUATION_ERROR`로 기록한다.
 
 평가 템플릿도 `suspend: true`이므로 Candidate가 없는 현재는 Job이 실행되지 않는다. Argo CD 상태는 `Synced / Healthy`이며 Training과 Evaluation 이미지 모두 `sha-e597ec0545baa2a0b17535c4b54acbc97882a2b2`로 고정했다. 평가 통과는 배포 승인이 아니며 다음 Model Conversion/Promotion 단계 전까지 Production v1은 변경되지 않는다.
+
+## 17. Model Promotion, Smoke Test 및 GitOps Rollback
+
+평가 통과 모델을 TensorRT FP16으로 변환하고 immutable S3 버전으로 승격하는 Model Operator를 배포했다. 이미지는 mutable tag 대신 다음 ECR digest로 고정했다.
+
+```text
+323974325951.dkr.ecr.ap-northeast-2.amazonaws.com/safety-mlops/trainer@sha256:8104bcb4d55f6575346b5f2bcdfecbb62df3e6e8b63affbffc316a08e244bbbd
+```
+
+초기 런타임 점검에서 Triton 기반 이미지에는 `python` 명령이 없고 `python3`만 존재하는 문제가 발견됐다. Docker CMD를 `python3`로 수정한 뒤 실제 Kubernetes 임시 Pod에서 `boto3`, Kubernetes SDK 및 `/usr/src/tensorrt/bin/trtexec`를 확인해 `final-model-operator-ok`를 검증했다. 임시 Pod는 삭제했다.
+
+Promotion은 `CONVERTING`, `READY_FOR_PROMOTION`, `PROMOTING`, `PROMOTED_PENDING_GIT` 상태를 사용한다. 변환 또는 S3 작업 실패 시 각각 `CONVERSION_ERROR`, `PROMOTION_ERROR`를 기록한다. S3 vN 복사 중 실패하면 해당 실행이 만든 객체를 정리하며, 모든 파일 생성이 성공한 경우에만 `_READY` 마커를 기록한다. 기존 v1은 덮어쓰지 않는다.
+
+GitHub Actions `promote-model.yaml`은 현재 Production 버전을 먼저 비교해 동시 Promotion 충돌을 차단한 뒤 `model-release.yaml`과 Triton/API의 model-version annotation을 함께 변경한다. annotation 변경으로 ConfigMap 값만 바뀌고 Pod가 재시작되지 않는 문제를 방지한다. Rollback도 동일한 Git workflow로 이전 버전을 커밋하고 Argo CD가 반영하도록 구성했다.
+
+Production v1 대상으로 S3의 비민감 테스트 이미지 `smoke-tests/ppe.jpg`를 사용해 Kubernetes Smoke Test Job을 두 번 실행했다.
+
+```text
+HTTP status: 200
+model_version: v1
+detection_count: 5
+latency: 2477.05 ms / 재배포 후 1412.52 ms
+Triton ready: true
+Triton GPU: Quadro RTX 5000
+nv_inference_request_success: 1
+nv_inference_count: 1
+```
+
+최종 상태는 Argo CD `Synced / Healthy`, inference-api·MLflow·Triton `1/1 Running`, GPU capacity/allocatable `2/2`, Production `v1`이다. 실제 신규 Candidate가 없으므로 가짜 v2를 만들거나 Git rollback을 강제로 실행하지 않았다. 실제 Candidate Promotion 시 Smoke Test 실패 경로에서 이전 버전 Git commit과 Argo CD rollback을 최종 실증해야 한다.
