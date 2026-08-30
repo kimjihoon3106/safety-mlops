@@ -81,13 +81,27 @@ def promote():
         "dynamic_profile": {"min": [1, 3, 320, 320], "opt": [4, 3, 640, 640], "max": [8, 3, 640, 640]},
         "input_tensor": "images", "output_tensor": "output0",
     })
-    for name in ("best.pt", "model.onnx", "model.plan", "evaluation_report.json"):
-        s3.copy_object(Bucket=bucket, Key=f"{destination}/{name}",
-                       CopySource={"Bucket": bucket, "Key": f"{candidate_prefix}/{name}"})
     config_text = f'''name: "yolov8"\nplatform: "tensorrt_plan"\nmax_batch_size: 8\ninput [{{ name: "images" data_type: TYPE_FP32 dims: [3, -1, -1] }}]\noutput [{{ name: "output0" data_type: TYPE_FP32 dims: [{classes + 4}, -1] }}]\ndynamic_batching {{ preferred_batch_size: [1, 4, 8] max_queue_delay_microseconds: 100 }}\n'''
-    s3.put_object(Bucket=bucket, Key=f"{destination}/config.pbtxt", Body=config_text.encode())
-    s3.put_object(Bucket=bucket, Key=f"{destination}/model_metadata.json",
-                  Body=(json.dumps(metadata, indent=2) + "\n").encode(), ContentType="application/json")
+    created = []
+    try:
+        for name in ("best.pt", "model.onnx", "model.plan", "evaluation_report.json"):
+            key = f"{destination}/{name}"
+            s3.copy_object(Bucket=bucket, Key=key,
+                           CopySource={"Bucket": bucket, "Key": f"{candidate_prefix}/{name}"})
+            created.append(key)
+        for key, body, content_type in (
+            (f"{destination}/config.pbtxt", config_text.encode(), "text/plain"),
+            (f"{destination}/model_metadata.json", (json.dumps(metadata, indent=2) + "\n").encode(), "application/json"),
+        ):
+            s3.put_object(Bucket=bucket, Key=key, Body=body, ContentType=content_type)
+            created.append(key)
+        ready_key = f"{destination}/_READY"
+        s3.put_object(Bucket=bucket, Key=ready_key, Body=data["engine_sha256"].encode())
+        created.append(ready_key)
+    except Exception:
+        if created:
+            s3.delete_objects(Bucket=bucket, Delete={"Objects": [{"Key": key} for key in created]})
+        raise
     values = {
         "status": "PROMOTED_PENDING_GIT", "promoted_version": version,
         "promoted_model_uri": f"s3://{bucket}/{destination}/model.plan",
