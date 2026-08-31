@@ -666,3 +666,49 @@ nv_inference_count: 1
 ```
 
 최종 상태는 Argo CD `Synced / Healthy`, inference-api·MLflow·Triton `1/1 Running`, GPU capacity/allocatable `2/2`, Production `v1`이다. 실제 신규 Candidate가 없으므로 가짜 v2를 만들거나 Git rollback을 강제로 실행하지 않았다. 실제 Candidate Promotion 시 Smoke Test 실패 경로에서 이전 버전 Git commit과 Argo CD rollback을 최종 실증해야 한다.
+
+## 18. AWS IAM Roles Anywhere 전환
+
+KVM 기반 k3s는 EC2 Instance Profile을 사용할 수 없으므로, 기존 Root 장기 Access Key 대신 X.509 인증서로 임시 STS 자격 증명을 발급하는 IAM Roles Anywhere 경로를 구성했다.
+
+```text
+k3s Pod
+  -> aws_signing_helper credential_process
+  -> IAM Roles Anywhere Trust Anchor / Profile
+  -> assumed-role/safety-mlops-k3s
+  -> S3 및 ECR 최소 권한 접근
+```
+
+AWS에는 `safety-mlops-k3s` Role과 `SafetyMLOpsK3SAccess` inline policy를 생성했다. S3 권한은 단일 MLOps 버킷의 `datasets`, `artifacts`, `models`, `edge-cases`, `smoke-tests` prefix로 제한하고, ECR pull 권한은 프로젝트의 네 저장소로 제한했다. Trust policy는 계정, Trust Anchor ARN, 인증서 Subject CN `safety-mlops-k3s` 조건을 함께 검사한다. GitHub Actions의 AWS OIDC 경로는 변경하지 않았다.
+
+클라이언트 인증서는 EC P-384, 유효기간 90일로 발급했다. CA private key와 인증서 원본은 서버의 root 전용 경로에 보관하고, Kubernetes `aws-roles-anywhere-x509` Secret에는 클라이언트 인증서와 private key만 저장한다. Git에는 인증서와 key를 넣지 않았다. `roles-anywhere-certificate-monitor` CronJob이 매일 만료일을 검사하며 30일 이하이면 실패한다. 2026-08-31 수동 검사 결과는 90.0일 잔여였다.
+
+다음 workload의 장기 Key 환경변수를 AWS SDK 기본 credential provider chain으로 교체했다.
+
+```text
+Dataset Watcher
+MLflow
+Training Job
+Evaluation Job
+Model Operator / S3 Promotion
+Triton model-sync
+ECR imagePullSecret refresher
+Smoke Test init container
+```
+
+검증 결과:
+
+```text
+STS identity: arn:aws:sts::323974325951:assumed-role/safety-mlops-k3s/<session>
+S3 datasets/artifacts/models/edge-cases: 임시 객체 put/head/delete 성공
+MLflow: validation.txt를 artifacts/mlflow/... 경로에 기록 성공
+Triton model-sync: model.plan checksum 검증 성공
+Dataset Watcher: Roboflow v30 상태 조회 성공
+ECR refresher: ecr-registry Secret 교체 성공
+Temporary credential: 15분 세션 만료 전 자동 rotation 확인
+Production smoke: HTTP 200, model v1, detection 5건
+```
+
+MLflow 베이스 이미지의 구형 glibc와 공식 helper 바이너리가 호환되지 않는 문제가 있었다. Ubuntu 20.04(glibc 2.31) 빌더에서 `aws_signing_helper` v1.8.5를 CGO로 컴파일해 MLflow 이미지에 포함했고, 해당 Pod 안에서 STS Role identity와 S3 artifact 기록을 확인했다.
+
+Training/Evaluation/Model Operator용 대형 CUDA trainer 이미지는 인증 검증용 Pod에서도 압축 해제 중 노드 ephemeral storage 임계값에 도달했다. 따라서 이 세 workload의 실제 이미지 기반 재검증과 기존 장기 credential 삭제는 보류한다. 현재 `aws-credentials` Secret과 서버 장기 credential은 fallback 용도로 남아 있지만 새 workload manifest에서는 참조하지 않는다. 디스크를 추가 확보한 뒤 세 Job의 S3 접근을 검증하고, 마지막으로 Kubernetes Secret과 `~/.aws/credentials`를 제거해야 한다. Root Access Key 자체는 AWS Root 계정의 Security Credentials 화면에서 사용자가 최종 삭제해야 한다.
