@@ -5,6 +5,8 @@ metadata:
   namespace: mlops
 spec:
   serviceAccountName: safety-trainer
+  imagePullSecrets:
+    - name: ecr-registry
   entrypoint: lifecycle
   parallelism: 1
   activeDeadlineSeconds: 21600
