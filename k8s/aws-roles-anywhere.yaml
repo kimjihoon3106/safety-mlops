@@ -8,3 +8,58 @@ data:
     [profile roles-anywhere]
     region = ap-northeast-2
     credential_process = /usr/local/bin/aws_signing_helper credential-process --certificate /var/run/aws-ra/tls/client.crt --private-key /var/run/aws-ra/tls/client.key --trust-anchor-arn arn:aws:rolesanywhere:ap-northeast-2:323974325951:trust-anchor/b2356628-d677-4144-bdab-1041161d6d9b --profile-arn arn:aws:rolesanywhere:ap-northeast-2:323974325951:profile/d7199a29-83b8-4bc4-9ae9-8b47e81448da --role-arn arn:aws:iam::323974325951:role/safety-mlops-k3s
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: roles-anywhere-certificate-monitor
+  namespace: mlops
+spec:
+  schedule: "17 0 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 7
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        spec:
+          restartPolicy: Never
+          imagePullSecrets:
+            - name: ecr-registry
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            runAsGroup: 0
+            fsGroup: 0
+          containers:
+            - name: certificate-monitor
+              image: 323974325951.dkr.ecr.ap-northeast-2.amazonaws.com/safety-mlops/dataset-watcher:sha-169c469851c0
+              imagePullPolicy: IfNotPresent
+              command:
+                - python
+                - -c
+                - |
+                  import datetime
+                  import ssl
+                  import sys
+
+                  cert = ssl._ssl._test_decode_cert("/var/run/aws-ra/tls/client.crt")
+                  expires = datetime.datetime.strptime(
+                      cert["notAfter"], "%b %d %H:%M:%S %Y %Z"
+                  ).replace(tzinfo=datetime.timezone.utc)
+                  remaining = expires - datetime.datetime.now(datetime.timezone.utc)
+                  days = remaining.total_seconds() / 86400
+                  print(f"roles_anywhere_certificate_days_remaining={days:.1f}")
+                  if days <= 30:
+                      print("certificate rotation required", file=sys.stderr)
+                      raise SystemExit(1)
+              volumeMounts:
+                - name: roles-anywhere-x509
+                  mountPath: /var/run/aws-ra/tls
+                  readOnly: true
+          volumes:
+            - name: roles-anywhere-x509
+              secret:
+                secretName: aws-roles-anywhere-x509
+                defaultMode: 288
