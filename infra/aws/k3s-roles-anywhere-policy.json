@@ -2,9 +2,15 @@
   "Version": "2012-10-17",
   "Statement": [
     {
+      "Sid": "ReadMLOpsBucketMetadata",
+      "Effect": "Allow",
+      "Action": ["s3:GetBucketLocation", "s3:ListBucketMultipartUploads"],
+      "Resource": "arn:aws:s3:::mlops-safety-323974325951-ap-northeast-2"
+    },
+    {
       "Sid": "ListMLOpsBucketPrefixes",
       "Effect": "Allow",
-      "Action": ["s3:GetBucketLocation", "s3:ListBucket", "s3:ListBucketMultipartUploads"],
+      "Action": "s3:ListBucket",
       "Resource": "arn:aws:s3:::mlops-safety-323974325951-ap-northeast-2",
       "Condition": {
         "StringLike": {
