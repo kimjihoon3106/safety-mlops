@@ -11,6 +11,8 @@ kind: ServiceAccount
 metadata:
   name: safety-trainer
   namespace: mlops
+imagePullSecrets:
+  - name: ecr-registry
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
