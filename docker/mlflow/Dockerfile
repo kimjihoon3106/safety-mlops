@@ -1,8 +1,12 @@
-FROM golang:1.26.6-bookworm AS roles-anywhere-helper
+FROM ubuntu:20.04 AS roles-anywhere-helper
 
-RUN git clone --depth 1 --branch v1.8.5 https://github.com/aws/rolesanywhere-credential-helper.git /src
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+      ca-certificates curl gcc git libc6-dev \
+    && curl -fsSLo /tmp/go.tar.gz https://go.dev/dl/go1.26.6.linux-amd64.tar.gz \
+    && tar -C /usr/local -xzf /tmp/go.tar.gz \
+    && git clone --depth 1 --branch v1.8.5 https://github.com/aws/rolesanywhere-credential-helper.git /src
 WORKDIR /src
-RUN CGO_ENABLED=0 go build -ldflags "-X 'github.com/aws/rolesanywhere-credential-helper/cmd.Version=1.8.5' -w -s" -trimpath -o /aws_signing_helper main.go
+RUN CGO_ENABLED=1 /usr/local/go/bin/go build -ldflags "-X 'github.com/aws/rolesanywhere-credential-helper/cmd.Version=1.8.5' -w -s" -trimpath -o /aws_signing_helper main.go
 
 FROM ghcr.io/mlflow/mlflow:v3.5.1
 
