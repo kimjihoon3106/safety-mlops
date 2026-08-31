@@ -27,7 +27,7 @@ spec:
       - {name: hpo_trial_count, value: "6"}
       - {name: hpo_parallelism, value: "1"}
       - {name: evaluation_policy_version, value: v1}
-      - {name: training_image_digest, value: sha-e78067fdc67b507f791aab30cfb0119961a03e04}
+      - {name: training_image_digest, value: "sha256:9b45515a347f10119c28520bc449b58a595163ecc4a613a23c5d5e8d56856fb2"}
   volumeClaimTemplates:
     - metadata:
         name: workflow-workspace
@@ -100,7 +100,7 @@ spec:
         limit: "1"
       activeDeadlineSeconds: 1800
       container:
-        image: 323974325951.dkr.ecr.ap-northeast-2.amazonaws.com/safety-mlops/trainer:sha-e78067fdc67b507f791aab30cfb0119961a03e04
+        image: &trainer-image 323974325951.dkr.ecr.ap-northeast-2.amazonaws.com/safety-mlops/trainer@sha256:9b45515a347f10119c28520bc449b58a595163ecc4a613a23c5d5e8d56856fb2
         imagePullPolicy: IfNotPresent
         command: [python, -c]
         args:
@@ -154,7 +154,7 @@ spec:
         retryPolicy: OnError
       activeDeadlineSeconds: 7200
       container:
-        image: 323974325951.dkr.ecr.ap-northeast-2.amazonaws.com/safety-mlops/trainer:sha-e78067fdc67b507f791aab30cfb0119961a03e04
+        image: *trainer-image
         imagePullPolicy: IfNotPresent
         command: [python, /app/hpo_trial.py]
         env: &training-env
@@ -181,7 +181,7 @@ spec:
     - name: select-best
       activeDeadlineSeconds: 600
       container:
-        image: 323974325951.dkr.ecr.ap-northeast-2.amazonaws.com/safety-mlops/trainer:sha-e78067fdc67b507f791aab30cfb0119961a03e04
+        image: *trainer-image
         imagePullPolicy: IfNotPresent
         command: [python, /app/select_best_trial.py]
         env:
@@ -211,7 +211,7 @@ spec:
           - name: best-parameters
       activeDeadlineSeconds: 14400
       container:
-        image: 323974325951.dkr.ecr.ap-northeast-2.amazonaws.com/safety-mlops/trainer:sha-e78067fdc67b507f791aab30cfb0119961a03e04
+        image: *trainer-image
         imagePullPolicy: IfNotPresent
         command: [python, /app/train_candidate.py]
         env:
@@ -239,7 +239,7 @@ spec:
     - name: evaluation
       activeDeadlineSeconds: 3600
       container:
-        image: 323974325951.dkr.ecr.ap-northeast-2.amazonaws.com/safety-mlops/trainer:sha-e78067fdc67b507f791aab30cfb0119961a03e04
+        image: *trainer-image
         imagePullPolicy: IfNotPresent
         command: [python, /app/evaluate_candidate.py]
         env:
