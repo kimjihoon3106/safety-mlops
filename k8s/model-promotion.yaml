@@ -42,7 +42,7 @@ spec:
             - name: work
               emptyDir: {sizeLimit: 4Gi}
             - {name: aws-ra-config, configMap: {name: aws-roles-anywhere-config}}
-            - {name: aws-ra-tls, secret: {secretName: aws-roles-anywhere-x509, defaultMode: 256}}
+            - {name: aws-ra-tls, secret: {secretName: aws-roles-anywhere-x509, defaultMode: 288}}
             - {name: aws-signing-helper, hostPath: {path: /usr/local/bin/aws_signing_helper, type: File}}
 ---
 apiVersion: batch/v1
@@ -84,5 +84,5 @@ spec:
                 - {name: aws-signing-helper, mountPath: /usr/local/bin/aws_signing_helper, readOnly: true}
           volumes:
             - {name: aws-ra-config, configMap: {name: aws-roles-anywhere-config}}
-            - {name: aws-ra-tls, secret: {secretName: aws-roles-anywhere-x509, defaultMode: 256}}
+            - {name: aws-ra-tls, secret: {secretName: aws-roles-anywhere-x509, defaultMode: 288}}
             - {name: aws-signing-helper, hostPath: {path: /usr/local/bin/aws_signing_helper, type: File}}

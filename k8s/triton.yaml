@@ -85,7 +85,7 @@ spec:
         - name: model-repository
           emptyDir: {}
         - {name: aws-ra-config, configMap: {name: aws-roles-anywhere-config}}
-        - {name: aws-ra-tls, secret: {secretName: aws-roles-anywhere-x509, defaultMode: 256}}
+        - {name: aws-ra-tls, secret: {secretName: aws-roles-anywhere-x509, defaultMode: 288}}
         - {name: aws-signing-helper, hostPath: {path: /usr/local/bin/aws_signing_helper, type: File}}
 ---
 apiVersion: v1
