@@ -9,8 +9,8 @@ spec:
   parallelism: 1
   activeDeadlineSeconds: 21600
   synchronization:
-    mutex:
-      name: safety-ml-lifecycle
+    mutexes:
+      - name: safety-ml-lifecycle
   podGC:
     strategy: OnWorkflowCompletion
   ttlStrategy:
