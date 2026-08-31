@@ -33,6 +33,7 @@ spec:
       - {name: hpo_trial_count, value: "6"}
       - {name: hpo_parallelism, value: "1"}
       - {name: evaluation_policy_version, value: v1}
+      - {name: git_commit, value: e78067fdc67b507f791aab30cfb0119961a03e04}
 EOF
 )
 kubectl patch configmap "$candidate" -n "$namespace" --type merge \

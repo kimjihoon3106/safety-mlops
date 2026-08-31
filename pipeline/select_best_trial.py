@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import json
 import os
+import sqlite3
 from pathlib import Path
 
 import boto3
@@ -26,10 +27,13 @@ def main() -> None:
     destination.write_text(json.dumps(best.params, separators=(",", ":")))
     report = Path("/work/best_trial.json")
     report.write_text(json.dumps(result, indent=2) + "\n")
-    boto3.client("s3").upload_file(
-        str(report), os.environ["S3_BUCKET"],
-        f"artifacts/hpo/{os.environ['CANDIDATE_ID']}/best_trial.json",
-    )
+    snapshot = Path("/work/optuna/study-snapshot.db")
+    with sqlite3.connect("/work/optuna/study.db") as source, sqlite3.connect(snapshot) as target:
+        source.backup(target)
+    s3 = boto3.client("s3")
+    prefix = f"artifacts/hpo/{os.environ['CANDIDATE_ID']}"
+    s3.upload_file(str(report), os.environ["S3_BUCKET"], f"{prefix}/best_trial.json")
+    s3.upload_file(str(snapshot), os.environ["S3_BUCKET"], f"{prefix}/study.db")
     print(json.dumps(result, indent=2))
 
 

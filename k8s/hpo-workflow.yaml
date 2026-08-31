@@ -27,6 +27,7 @@ spec:
       - {name: hpo_trial_count, value: "6"}
       - {name: hpo_parallelism, value: "1"}
       - {name: evaluation_policy_version, value: v1}
+      - {name: git_commit, value: e78067fdc67b507f791aab30cfb0119961a03e04}
       - {name: training_image_digest, value: "sha256:9b45515a347f10119c28520bc449b58a595163ecc4a613a23c5d5e8d56856fb2"}
   volumeClaimTemplates:
     - metadata:
@@ -161,6 +162,7 @@ spec:
           - {name: CANDIDATE_ID, value: "{{workflow.parameters.candidate_id}}"}
           - {name: DATASET_VERSION, value: "{{workflow.parameters.dataset_version}}"}
           - {name: WORKFLOW_ID, value: "{{workflow.name}}"}
+          - {name: GIT_COMMIT, value: "{{workflow.parameters.git_commit}}"}
           - {name: OPTUNA_STUDY_NAME, value: "safety-{{workflow.parameters.candidate_id}}"}
           - {name: OPTUNA_STORAGE, value: "sqlite:////work/optuna/study.db"}
           - {name: DATASET_PATH, value: /work/dataset}
@@ -221,6 +223,7 @@ spec:
           - {name: DATASET_VERSION, value: "{{workflow.parameters.dataset_version}}"}
           - {name: CANDIDATE_ID, value: "{{workflow.parameters.candidate_id}}"}
           - {name: WORKFLOW_ID, value: "{{workflow.name}}"}
+          - {name: GIT_COMMIT, value: "{{workflow.parameters.git_commit}}"}
           - {name: HYPERPARAMETERS_JSON, value: "{{inputs.parameters.best-parameters}}"}
           - {name: S3_BUCKET, value: mlops-safety-323974325951-ap-northeast-2}
           - {name: MLFLOW_TRACKING_URI, value: "http://mlflow.mlops.svc.cluster.local:5000"}
@@ -248,6 +251,9 @@ spec:
           - name: PRODUCTION_METADATA_URI
             valueFrom: {configMapKeyRef: {name: safety-model-release, key: METADATA_URI}}
           - {name: EVALUATION_STATUS_PATH, value: /work/evaluation_status.txt}
+          - {name: CANDIDATE_ID, value: "{{workflow.parameters.candidate_id}}"}
+          - {name: WORKFLOW_ID, value: "{{workflow.name}}"}
+          - {name: MLFLOW_TRACKING_URI, value: "http://mlflow.mlops.svc.cluster.local:5000"}
           - {name: AWS_PROFILE, value: roles-anywhere}
           - {name: AWS_CONFIG_FILE, value: /var/run/aws-ra/config/config}
           - {name: AWS_SDK_LOAD_CONFIG, value: "1"}

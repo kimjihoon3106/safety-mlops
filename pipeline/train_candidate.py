@@ -84,6 +84,7 @@ def main() -> None:
             "run_type": "FINAL_TRAINING",
             "candidate_id": os.getenv("CANDIDATE_ID", dataset_version),
             "workflow_id": os.getenv("WORKFLOW_ID", "manual"),
+            "git_commit": os.getenv("GIT_COMMIT", "unknown"),
         })
         result = YOLO(model_name).train(
             data=str(descriptor_path), epochs=epochs, imgsz=image_size, batch=batch,

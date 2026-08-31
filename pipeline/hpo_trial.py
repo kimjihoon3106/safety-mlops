@@ -32,6 +32,7 @@ def main() -> None:
     workflow_id = os.environ["WORKFLOW_ID"]
     study_name = os.environ["OPTUNA_STUDY_NAME"]
     storage = os.getenv("OPTUNA_STORAGE", "sqlite:////work/optuna/study.db")
+    Path("/work/optuna").mkdir(parents=True, exist_ok=True)
     dataset = Path(os.getenv("DATASET_PATH", "/work/dataset"))
     descriptor_path = dataset / "data.yaml"
     descriptor = yaml.safe_load(descriptor_path.read_text())

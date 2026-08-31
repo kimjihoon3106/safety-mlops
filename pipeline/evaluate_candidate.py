@@ -6,6 +6,7 @@ import time
 from pathlib import Path
 
 import boto3
+import mlflow
 import numpy as np
 import onnxruntime as ort
 import yaml
@@ -131,6 +132,18 @@ def main() -> None:
     status_path = Path(os.getenv("EVALUATION_STATUS_PATH", "/work/evaluation_status.txt"))
     status_path.write_text(report["status"] + "\n")
     s3.upload_file(str(report_path), bucket, f"{prefix}/evaluation_report.json")
+    if os.getenv("MLFLOW_TRACKING_URI"):
+        mlflow.set_tracking_uri(os.environ["MLFLOW_TRACKING_URI"])
+        mlflow.set_experiment("safety-model-evaluations")
+        with mlflow.start_run(run_name=os.getenv("CANDIDATE_ID", prefix.rsplit("/", 1)[-1])):
+            mlflow.set_tags({
+                "run_type": "EVALUATION",
+                "candidate_id": os.getenv("CANDIDATE_ID", "unknown"),
+                "workflow_id": os.getenv("WORKFLOW_ID", "manual"),
+                "evaluation_status": report["status"],
+            })
+            mlflow.log_metrics({key: float(value) for key, value in checks.items()})
+            mlflow.log_artifact(str(report_path))
     patch_candidate({
         "status": report["status"],
         "evaluation_report_uri": f"s3://{bucket}/{prefix}/evaluation_report.json",
