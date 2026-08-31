@@ -1,6 +1,6 @@
 image:
   repository: 323974325951.dkr.ecr.ap-northeast-2.amazonaws.com/safety-mlops/mlflow
-  tag: "sha-a52ceb5d7b12"
+  tag: "sha-c81dbf5bdfe0604c2ecb6e47ef5d8c12f7652349"
   pullPolicy: IfNotPresent
 
 imagePullSecrets:
