@@ -10,6 +10,7 @@ if [[ "$status" != "AWAITING_APPROVAL" ]]; then
 fi
 
 dataset_version=$(kubectl get configmap "$candidate" -n "$namespace" -o jsonpath='{.data.dataset_version}')
+dataset_s3_uri=$(kubectl get configmap "$candidate" -n "$namespace" -o jsonpath='{.data.s3_uri}')
 candidate_id="candidate-${dataset_version}"
 workflow=$(kubectl create -n "$namespace" -o name -f - <<EOF
 apiVersion: argoproj.io/v1alpha1
@@ -26,6 +27,8 @@ spec:
     parameters:
       - {name: candidate_id, value: "${candidate_id}"}
       - {name: dataset_version, value: "${dataset_version}"}
+      - {name: dataset_s3_uri, value: "${dataset_s3_uri}"}
+      - {name: run_mode, value: FULL}
       - {name: model_family, value: yolov8}
       - {name: base_model, value: yolov8s.pt}
       - {name: epochs, value: "50"}

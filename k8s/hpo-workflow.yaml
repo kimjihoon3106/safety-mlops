@@ -20,6 +20,8 @@ spec:
     parameters:
       - {name: candidate_id}
       - {name: dataset_version}
+      - {name: dataset_s3_uri}
+      - {name: run_mode, value: FULL}
       - {name: model_family, value: yolov8}
       - {name: base_model, value: yolov8s.pt}
       - {name: epochs, value: "50"}
@@ -73,11 +75,16 @@ spec:
             template: select-best
           - name: final-training
             depends: select-best.Succeeded
+            when: "{{workflow.parameters.run_mode}} == FULL"
             template: final-training
             arguments:
               parameters:
                 - name: best-parameters
                   value: "{{tasks.select-best.outputs.parameters.best-parameters}}"
+          - name: hpo-validation-result
+            depends: select-best.Succeeded
+            when: "{{workflow.parameters.run_mode}} == HPO_ONLY"
+            template: hpo-validation-complete
           - name: evaluation
             depends: final-training.Succeeded
             template: evaluation
@@ -130,7 +137,7 @@ spec:
             print(f"dataset_objects={count}")
         env:
           - name: DATASET_S3_URI
-            valueFrom: {configMapKeyRef: {name: training-candidate, key: s3_uri}}
+            value: "{{workflow.parameters.dataset_s3_uri}}"
           - {name: HPO_PARALLELISM, value: "{{workflow.parameters.hpo_parallelism}}"}
           - {name: AWS_PROFILE, value: roles-anywhere}
           - {name: AWS_CONFIG_FILE, value: /var/run/aws-ra/config/config}
@@ -218,7 +225,7 @@ spec:
         command: [python, /app/train_candidate.py]
         env:
           - name: DATASET_S3_URI
-            valueFrom: {configMapKeyRef: {name: training-candidate, key: s3_uri}}
+            value: "{{workflow.parameters.dataset_s3_uri}}"
           - {name: DATASET_PATH, value: /work/dataset}
           - {name: DATASET_VERSION, value: "{{workflow.parameters.dataset_version}}"}
           - {name: CANDIDATE_ID, value: "{{workflow.parameters.candidate_id}}"}
@@ -319,3 +326,9 @@ spec:
         image: alpine:3.22
         command: [sh, -c]
         args: ["echo promoted-pending-git-production-unchanged"]
+
+    - name: hpo-validation-complete
+      container:
+        image: alpine:3.22
+        command: [sh, -c]
+        args: ["echo hpo-validation-complete-production-unchanged"]
