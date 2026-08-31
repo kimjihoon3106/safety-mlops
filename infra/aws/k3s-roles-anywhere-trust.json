@@ -1,0 +1,16 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {"Service": "rolesanywhere.amazonaws.com"},
+      "Action": ["sts:AssumeRole", "sts:SetSourceIdentity", "sts:TagSession"],
+      "Condition": {
+        "StringEquals": {
+          "aws:SourceAccount": "323974325951",
+          "aws:PrincipalTag/x509Subject/CN": "safety-mlops-k3s"
+        }
+      }
+    }
+  ]
+}

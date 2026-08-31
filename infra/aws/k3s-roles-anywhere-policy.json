@@ -1,0 +1,48 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ListMLOpsBucketPrefixes",
+      "Effect": "Allow",
+      "Action": ["s3:GetBucketLocation", "s3:ListBucket", "s3:ListBucketMultipartUploads"],
+      "Resource": "arn:aws:s3:::mlops-safety-323974325951-ap-northeast-2",
+      "Condition": {
+        "StringLike": {
+          "s3:prefix": ["datasets/*", "artifacts/*", "edge-cases/*", "models/*", "smoke-tests/*"]
+        }
+      }
+    },
+    {
+      "Sid": "ReadWriteMLOpsObjects",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject", "s3:GetObjectVersion", "s3:PutObject", "s3:DeleteObject",
+        "s3:AbortMultipartUpload", "s3:ListMultipartUploadParts"
+      ],
+      "Resource": [
+        "arn:aws:s3:::mlops-safety-323974325951-ap-northeast-2/datasets/*",
+        "arn:aws:s3:::mlops-safety-323974325951-ap-northeast-2/artifacts/*",
+        "arn:aws:s3:::mlops-safety-323974325951-ap-northeast-2/edge-cases/*",
+        "arn:aws:s3:::mlops-safety-323974325951-ap-northeast-2/models/*",
+        "arn:aws:s3:::mlops-safety-323974325951-ap-northeast-2/smoke-tests/*"
+      ]
+    },
+    {
+      "Sid": "GetECRAuthorizationToken",
+      "Effect": "Allow",
+      "Action": "ecr:GetAuthorizationToken",
+      "Resource": "*"
+    },
+    {
+      "Sid": "PullMLOpsImages",
+      "Effect": "Allow",
+      "Action": ["ecr:BatchCheckLayerAvailability", "ecr:GetDownloadUrlForLayer", "ecr:BatchGetImage"],
+      "Resource": [
+        "arn:aws:ecr:ap-northeast-2:323974325951:repository/safety-mlops/inference-api",
+        "arn:aws:ecr:ap-northeast-2:323974325951:repository/safety-mlops/dataset-watcher",
+        "arn:aws:ecr:ap-northeast-2:323974325951:repository/safety-mlops/mlflow",
+        "arn:aws:ecr:ap-northeast-2:323974325951:repository/safety-mlops/trainer"
+      ]
+    }
+  ]
+}
