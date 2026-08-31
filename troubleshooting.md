@@ -712,3 +712,37 @@ Production smoke: HTTP 200, model v1, detection 5건
 MLflow 베이스 이미지의 구형 glibc와 공식 helper 바이너리가 호환되지 않는 문제가 있었다. Ubuntu 20.04(glibc 2.31) 빌더에서 `aws_signing_helper` v1.8.5를 CGO로 컴파일해 MLflow 이미지에 포함했고, 해당 Pod 안에서 STS Role identity와 S3 artifact 기록을 확인했다.
 
 Training/Evaluation/Model Operator용 대형 CUDA trainer 이미지는 인증 검증용 Pod에서도 압축 해제 중 노드 ephemeral storage 임계값에 도달했다. 따라서 이 세 workload의 실제 이미지 기반 재검증과 기존 장기 credential 삭제는 보류한다. 현재 `aws-credentials` Secret과 서버 장기 credential은 fallback 용도로 남아 있지만 새 workload manifest에서는 참조하지 않는다. 디스크를 추가 확보한 뒤 세 Job의 S3 접근을 검증하고, 마지막으로 Kubernetes Secret과 `~/.aws/credentials`를 제거해야 한다. Root Access Key 자체는 AWS Root 계정의 Security Credentials 화면에서 사용자가 최종 삭제해야 한다.
+
+## 19. Argo Workflows 및 Optuna HPO 도입
+
+Argo Workflows v4.1.0을 `argo` 네임스페이스에 최소 구성으로 설치했다. Workflow Controller와 Argo Server는 각각 1개 Pod만 실행하며 Service는 ClusterIP로 유지한다. 공식 설치 manifest의 실행용 ServiceAccount에 `workflowtaskresults` 권한이 없어 첫 Hello Workflow가 완료 상태를 기록하지 못하는 문제가 발생했고, `create`, `patch` 두 권한만 갖는 namespace Role을 추가해 해결했다. 재실행한 `hello-9fmkp` Workflow는 `argo-workflows-phase1-ok`를 출력하고 `Succeeded`가 됐다.
+
+`safety-ml-lifecycle` WorkflowTemplate은 다음 DAG를 정의한다.
+
+```text
+Dataset Preparation
+  -> Optuna HPO Trials (초기 parallelism=1)
+  -> Best Trial Selection
+  -> Final Training
+  -> Evaluation
+       -> REJECT: Production 변경 없음
+       -> PASS: TensorRT FP16 -> S3 Promotion -> PROMOTED_PENDING_GIT
+```
+
+Production Deployment를 Workflow에서 직접 수정하지 않는다. S3 Promotion 이후에도 GitHub의 기존 Promotion workflow와 Argo CD가 Production source of truth를 유지한다. 실제 Workflow 제출은 `training-candidate`가 `AWAITING_APPROVAL`일 때만 `scripts/submit-hpo-workflow.sh`로 가능하며, 제출 직후 상태를 `HPO_RUNNING`으로 변경한다.
+
+초기 Search Space는 RTX 5000 16GiB 한 장에 맞춰 제한했다.
+
+```text
+learning_rate: 1e-4 ~ 1e-2 (log)
+batch_size: 4, 8
+optimizer: SGD, AdamW
+weight_decay: 1e-5 ~ 1e-3 (log)
+momentum: 0.85 ~ 0.95
+image_size: 512, 640
+objective: mAP50-95 최대화
+```
+
+각 Trial은 GPU 1개를 요청하고 MLflow에 `HPO_TRIAL`로 기록한다. Best parameter는 Argo output parameter로 Final Training에 전달한다. Optuna SQLite는 병렬도 1인 초기 검증에만 사용하며 Workflow PVC에 저장한다. 완료 시 일관된 DB snapshot과 best trial JSON을 S3 `artifacts/hpo/<candidate_id>/`에 업로드한다. 병렬도를 2 이상으로 늘리기 전에는 PostgreSQL로 이전해야 한다.
+
+현재 실제 노드 자원은 CPU 2개, RAM 7.7GiB, 디스크 39GiB 중 여유 약 8.3GiB다. 설정상 16GiB로 증설했다고 알려진 RAM이 게스트 OS에서는 7.7GiB만 보인다. 기존 CUDA Trainer 이미지도 압축 해제 중 ephemeral storage 부족으로 실패한 이력이 있고 현재 `training-candidate` ConfigMap도 존재하지 않는다. 따라서 가짜 Candidate/v2를 만들지 않았으며 실제 Optuna Trial, Final Training, Promotion, Git 변경, Rollback 실행은 보류했다. Production v1, Triton, FastAPI, MLflow와 두 Argo CD Application은 계속 정상이다.
