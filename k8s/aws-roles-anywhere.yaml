@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aws-roles-anywhere-config
+  namespace: mlops
+data:
+  config: |
+    [profile roles-anywhere]
+    region = ap-northeast-2
+    credential_process = /usr/local/bin/aws_signing_helper credential-process --certificate /var/run/aws-ra/tls/client.crt --private-key /var/run/aws-ra/tls/client.key --trust-anchor-arn arn:aws:rolesanywhere:ap-northeast-2:323974325951:trust-anchor/b2356628-d677-4144-bdab-1041161d6d9b --profile-arn arn:aws:rolesanywhere:ap-northeast-2:323974325951:profile/d7199a29-83b8-4bc4-9ae9-8b47e81448da --role-arn arn:aws:iam::323974325951:role/safety-mlops-k3s

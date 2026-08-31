@@ -25,19 +25,25 @@ spec:
               env:
                 - name: ACTION
                   value: convert
-                - name: AWS_ACCESS_KEY_ID
-                  valueFrom: {secretKeyRef: {name: aws-credentials, key: AWS_ACCESS_KEY_ID}}
-                - name: AWS_SECRET_ACCESS_KEY
-                  valueFrom: {secretKeyRef: {name: aws-credentials, key: AWS_SECRET_ACCESS_KEY}}
-                - name: AWS_DEFAULT_REGION
-                  valueFrom: {secretKeyRef: {name: aws-credentials, key: AWS_DEFAULT_REGION}}
+                - {name: AWS_PROFILE, value: roles-anywhere}
+                - {name: AWS_CONFIG_FILE, value: /var/run/aws-ra/config/config}
+                - {name: AWS_SDK_LOAD_CONFIG, value: "1"}
+                - {name: AWS_DEFAULT_REGION, value: ap-northeast-2}
+                - {name: AWS_REGION, value: ap-northeast-2}
               resources:
                 requests: {cpu: "1", memory: 2Gi, nvidia.com/gpu: "1"}
                 limits: {memory: 5Gi, nvidia.com/gpu: "1"}
-              volumeMounts: [{name: work, mountPath: /work}]
+              volumeMounts:
+                - {name: work, mountPath: /work}
+                - {name: aws-ra-config, mountPath: /var/run/aws-ra/config, readOnly: true}
+                - {name: aws-ra-tls, mountPath: /var/run/aws-ra/tls, readOnly: true}
+                - {name: aws-signing-helper, mountPath: /usr/local/bin/aws_signing_helper, readOnly: true}
           volumes:
             - name: work
               emptyDir: {sizeLimit: 4Gi}
+            - {name: aws-ra-config, configMap: {name: aws-roles-anywhere-config}}
+            - {name: aws-ra-tls, secret: {secretName: aws-roles-anywhere-x509, defaultMode: 256}}
+            - {name: aws-signing-helper, hostPath: {path: /usr/local/bin/aws_signing_helper, type: File}}
 ---
 apiVersion: batch/v1
 kind: CronJob
@@ -64,12 +70,19 @@ spec:
               image: 323974325951.dkr.ecr.ap-northeast-2.amazonaws.com/safety-mlops/trainer@sha256:8104bcb4d55f6575346b5f2bcdfecbb62df3e6e8b63affbffc316a08e244bbbd
               env:
                 - {name: ACTION, value: promote}
-                - name: AWS_ACCESS_KEY_ID
-                  valueFrom: {secretKeyRef: {name: aws-credentials, key: AWS_ACCESS_KEY_ID}}
-                - name: AWS_SECRET_ACCESS_KEY
-                  valueFrom: {secretKeyRef: {name: aws-credentials, key: AWS_SECRET_ACCESS_KEY}}
-                - name: AWS_DEFAULT_REGION
-                  valueFrom: {secretKeyRef: {name: aws-credentials, key: AWS_DEFAULT_REGION}}
+                - {name: AWS_PROFILE, value: roles-anywhere}
+                - {name: AWS_CONFIG_FILE, value: /var/run/aws-ra/config/config}
+                - {name: AWS_SDK_LOAD_CONFIG, value: "1"}
+                - {name: AWS_DEFAULT_REGION, value: ap-northeast-2}
+                - {name: AWS_REGION, value: ap-northeast-2}
               resources:
                 requests: {cpu: 100m, memory: 256Mi}
                 limits: {memory: 1Gi}
+              volumeMounts:
+                - {name: aws-ra-config, mountPath: /var/run/aws-ra/config, readOnly: true}
+                - {name: aws-ra-tls, mountPath: /var/run/aws-ra/tls, readOnly: true}
+                - {name: aws-signing-helper, mountPath: /usr/local/bin/aws_signing_helper, readOnly: true}
+          volumes:
+            - {name: aws-ra-config, configMap: {name: aws-roles-anywhere-config}}
+            - {name: aws-ra-tls, secret: {secretName: aws-roles-anywhere-x509, defaultMode: 256}}
+            - {name: aws-signing-helper, hostPath: {path: /usr/local/bin/aws_signing_helper, type: File}}

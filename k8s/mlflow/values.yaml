@@ -19,7 +19,6 @@ persistence:
 s3:
   bucket: ""
   artifactPrefix: artifacts/mlflow
-  credentialsSecret: aws-credentials
 
 resources:
   requests:

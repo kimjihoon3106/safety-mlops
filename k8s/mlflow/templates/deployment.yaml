@@ -33,26 +33,16 @@ spec:
             - --artifacts-destination
             - s3://{{ required "s3.bucket is required" .Values.s3.bucket }}/{{ .Values.s3.artifactPrefix }}
           env:
-            - name: AWS_ACCESS_KEY_ID
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.s3.credentialsSecret }}
-                  key: AWS_ACCESS_KEY_ID
-            - name: AWS_SECRET_ACCESS_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.s3.credentialsSecret }}
-                  key: AWS_SECRET_ACCESS_KEY
+            - name: AWS_PROFILE
+              value: roles-anywhere
+            - name: AWS_CONFIG_FILE
+              value: /var/run/aws-ra/config/config
+            - name: AWS_SDK_LOAD_CONFIG
+              value: "1"
             - name: AWS_DEFAULT_REGION
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.s3.credentialsSecret }}
-                  key: AWS_DEFAULT_REGION
+              value: ap-northeast-2
             - name: AWS_REGION
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.s3.credentialsSecret }}
-                  key: AWS_REGION
+              value: ap-northeast-2
           ports:
             - name: http
               containerPort: {{ .Values.service.port }}
@@ -71,9 +61,15 @@ spec:
           volumeMounts:
             - name: database
               mountPath: /mlflow/db
+            - {name: aws-ra-config, mountPath: /var/run/aws-ra/config, readOnly: true}
+            - {name: aws-ra-tls, mountPath: /var/run/aws-ra/tls, readOnly: true}
+            - {name: aws-signing-helper, mountPath: /usr/local/bin/aws_signing_helper, readOnly: true}
           resources:
 {{ toYaml .Values.resources | indent 12 }}
       volumes:
         - name: database
           persistentVolumeClaim:
             claimName: {{ .Release.Name }}
+        - {name: aws-ra-config, configMap: {name: aws-roles-anywhere-config}}
+        - {name: aws-ra-tls, secret: {secretName: aws-roles-anywhere-x509, defaultMode: 256}}
+        - {name: aws-signing-helper, hostPath: {path: /usr/local/bin/aws_signing_helper, type: File}}
