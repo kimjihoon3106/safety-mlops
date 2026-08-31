@@ -1,4 +1,4 @@
-FROM golang:1.25-bookworm AS roles-anywhere-helper
+FROM golang:1.26.6-bookworm AS roles-anywhere-helper
 
 RUN git clone --depth 1 --branch v1.8.5 https://github.com/aws/rolesanywhere-credential-helper.git /src
 WORKDIR /src
