@@ -27,8 +27,8 @@ spec:
       - {name: hpo_trial_count, value: "6"}
       - {name: hpo_parallelism, value: "1"}
       - {name: evaluation_policy_version, value: v1}
-      - {name: git_commit, value: e78067fdc67b507f791aab30cfb0119961a03e04}
-      - {name: training_image_digest, value: "sha256:9b45515a347f10119c28520bc449b58a595163ecc4a613a23c5d5e8d56856fb2"}
+      - {name: git_commit, value: 6a90dcf5d156d8186c199bcb149ec81490ec7818}
+      - {name: training_image_digest, value: "sha256:831b2b297b6bc0bb78c8e06061fa210d2827c3b246e3c0cca763355109d3a015"}
   volumeClaimTemplates:
     - metadata:
         name: workflow-workspace
@@ -101,7 +101,7 @@ spec:
         limit: "1"
       activeDeadlineSeconds: 1800
       container:
-        image: &trainer-image 323974325951.dkr.ecr.ap-northeast-2.amazonaws.com/safety-mlops/trainer@sha256:9b45515a347f10119c28520bc449b58a595163ecc4a613a23c5d5e8d56856fb2
+        image: &trainer-image 323974325951.dkr.ecr.ap-northeast-2.amazonaws.com/safety-mlops/trainer@sha256:831b2b297b6bc0bb78c8e06061fa210d2827c3b246e3c0cca763355109d3a015
         imagePullPolicy: IfNotPresent
         command: [python, -c]
         args:
