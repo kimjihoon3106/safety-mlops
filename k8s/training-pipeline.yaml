@@ -22,6 +22,9 @@ rules:
     resources: ["configmaps"]
     resourceNames: ["training-candidate"]
     verbs: ["get", "update"]
+  - apiGroups: ["argoproj.io"]
+    resources: ["workflowtaskresults"]
+    verbs: ["create", "patch"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding

@@ -1,0 +1,315 @@
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: safety-ml-lifecycle
+  namespace: mlops
+spec:
+  serviceAccountName: safety-trainer
+  entrypoint: lifecycle
+  parallelism: 1
+  activeDeadlineSeconds: 21600
+  synchronization:
+    mutex:
+      name: safety-ml-lifecycle
+  podGC:
+    strategy: OnWorkflowCompletion
+  ttlStrategy:
+    secondsAfterCompletion: 604800
+    secondsAfterFailure: 604800
+  arguments:
+    parameters:
+      - {name: candidate_id}
+      - {name: dataset_version}
+      - {name: model_family, value: yolov8}
+      - {name: base_model, value: yolov8s.pt}
+      - {name: epochs, value: "50"}
+      - {name: hpo_epochs, value: "10"}
+      - {name: hpo_trial_count, value: "6"}
+      - {name: hpo_parallelism, value: "1"}
+      - {name: evaluation_policy_version, value: v1}
+      - {name: training_image_digest, value: sha-e78067fdc67b507f791aab30cfb0119961a03e04}
+  volumeClaimTemplates:
+    - metadata:
+        name: workflow-workspace
+      spec:
+        accessModes: [ReadWriteOnce]
+        storageClassName: local-path
+        resources:
+          requests:
+            storage: 6Gi
+  volumes:
+    - name: aws-ra-config
+      configMap:
+        name: aws-roles-anywhere-config
+    - name: aws-ra-tls
+      secret:
+        secretName: aws-roles-anywhere-x509
+        defaultMode: 288
+    - name: aws-signing-helper
+      hostPath:
+        path: /usr/local/bin/aws_signing_helper
+        type: File
+    - name: evaluation-policy
+      configMap:
+        name: safety-model-evaluation-policy
+  templates:
+    - name: lifecycle
+      dag:
+        tasks:
+          - name: prepare-dataset
+            template: prepare-dataset
+          - name: hpo-trial
+            depends: prepare-dataset.Succeeded
+            template: hpo-trial
+            arguments:
+              parameters:
+                - name: requested-trial
+                  value: "{{item}}"
+            withSequence:
+              count: "{{workflow.parameters.hpo_trial_count}}"
+          - name: select-best
+            depends: hpo-trial.Succeeded
+            template: select-best
+          - name: final-training
+            depends: select-best.Succeeded
+            template: final-training
+            arguments:
+              parameters:
+                - name: best-parameters
+                  value: "{{tasks.select-best.outputs.parameters.best-parameters}}"
+          - name: evaluation
+            depends: final-training.Succeeded
+            template: evaluation
+          - name: reject
+            depends: evaluation.Succeeded
+            when: "{{tasks.evaluation.outputs.parameters.evaluation-status}} != EVALUATION_PASSED"
+            template: rejected
+          - name: tensorrt
+            depends: evaluation.Succeeded
+            when: "{{tasks.evaluation.outputs.parameters.evaluation-status}} == EVALUATION_PASSED"
+            template: tensorrt
+          - name: promotion
+            depends: tensorrt.Succeeded
+            template: promotion
+          - name: result
+            depends: promotion.Succeeded
+            template: promoted-pending-git
+
+    - name: prepare-dataset
+      retryStrategy:
+        limit: "1"
+      activeDeadlineSeconds: 1800
+      container:
+        image: 323974325951.dkr.ecr.ap-northeast-2.amazonaws.com/safety-mlops/trainer:sha-e78067fdc67b507f791aab30cfb0119961a03e04
+        imagePullPolicy: IfNotPresent
+        command: [python, -c]
+        args:
+          - |
+            import os
+            from pathlib import Path
+            import boto3
+            if os.environ["HPO_PARALLELISM"] != "1":
+                raise RuntimeError("initial deployment requires hpo_parallelism=1")
+            uri = os.environ["DATASET_S3_URI"]
+            bucket, _, prefix = uri[5:].partition("/")
+            root = Path("/work/dataset")
+            root.mkdir(parents=True, exist_ok=True)
+            s3 = boto3.client("s3")
+            count = 0
+            for page in s3.get_paginator("list_objects_v2").paginate(Bucket=bucket, Prefix=prefix):
+                for item in page.get("Contents", []):
+                    relative = item["Key"][len(prefix):].lstrip("/")
+                    if relative:
+                        target = root / relative
+                        target.parent.mkdir(parents=True, exist_ok=True)
+                        s3.download_file(bucket, item["Key"], str(target))
+                        count += 1
+            if count == 0 or not (root / "data.yaml").is_file():
+                raise RuntimeError("dataset is empty or data.yaml is missing")
+            print(f"dataset_objects={count}")
+        env:
+          - name: DATASET_S3_URI
+            valueFrom: {configMapKeyRef: {name: training-candidate, key: s3_uri}}
+          - {name: HPO_PARALLELISM, value: "{{workflow.parameters.hpo_parallelism}}"}
+          - {name: AWS_PROFILE, value: roles-anywhere}
+          - {name: AWS_CONFIG_FILE, value: /var/run/aws-ra/config/config}
+          - {name: AWS_SDK_LOAD_CONFIG, value: "1"}
+          - {name: AWS_DEFAULT_REGION, value: ap-northeast-2}
+          - {name: AWS_REGION, value: ap-northeast-2}
+        resources:
+          requests: {cpu: 100m, memory: 256Mi}
+          limits: {memory: 1Gi}
+        volumeMounts: &common-mounts
+          - {name: workflow-workspace, mountPath: /work}
+          - {name: aws-ra-config, mountPath: /var/run/aws-ra/config, readOnly: true}
+          - {name: aws-ra-tls, mountPath: /var/run/aws-ra/tls, readOnly: true}
+          - {name: aws-signing-helper, mountPath: /usr/local/bin/aws_signing_helper, readOnly: true}
+
+    - name: hpo-trial
+      inputs:
+        parameters:
+          - name: requested-trial
+      retryStrategy:
+        limit: "1"
+        retryPolicy: OnError
+      activeDeadlineSeconds: 7200
+      container:
+        image: 323974325951.dkr.ecr.ap-northeast-2.amazonaws.com/safety-mlops/trainer:sha-e78067fdc67b507f791aab30cfb0119961a03e04
+        imagePullPolicy: IfNotPresent
+        command: [python, /app/hpo_trial.py]
+        env: &training-env
+          - {name: CANDIDATE_ID, value: "{{workflow.parameters.candidate_id}}"}
+          - {name: DATASET_VERSION, value: "{{workflow.parameters.dataset_version}}"}
+          - {name: WORKFLOW_ID, value: "{{workflow.name}}"}
+          - {name: OPTUNA_STUDY_NAME, value: "safety-{{workflow.parameters.candidate_id}}"}
+          - {name: OPTUNA_STORAGE, value: "sqlite:////work/optuna/study.db"}
+          - {name: DATASET_PATH, value: /work/dataset}
+          - {name: BASE_MODEL, value: "{{workflow.parameters.base_model}}"}
+          - {name: HPO_EPOCHS, value: "{{workflow.parameters.hpo_epochs}}"}
+          - {name: S3_BUCKET, value: mlops-safety-323974325951-ap-northeast-2}
+          - {name: MLFLOW_TRACKING_URI, value: "http://mlflow.mlops.svc.cluster.local:5000"}
+          - {name: AWS_PROFILE, value: roles-anywhere}
+          - {name: AWS_CONFIG_FILE, value: /var/run/aws-ra/config/config}
+          - {name: AWS_SDK_LOAD_CONFIG, value: "1"}
+          - {name: AWS_DEFAULT_REGION, value: ap-northeast-2}
+          - {name: AWS_REGION, value: ap-northeast-2}
+        resources:
+          requests: {cpu: "1", memory: 3Gi, nvidia.com/gpu: "1"}
+          limits: {memory: 6Gi, nvidia.com/gpu: "1"}
+        volumeMounts: *common-mounts
+
+    - name: select-best
+      activeDeadlineSeconds: 600
+      container:
+        image: 323974325951.dkr.ecr.ap-northeast-2.amazonaws.com/safety-mlops/trainer:sha-e78067fdc67b507f791aab30cfb0119961a03e04
+        imagePullPolicy: IfNotPresent
+        command: [python, /app/select_best_trial.py]
+        env:
+          - {name: CANDIDATE_ID, value: "{{workflow.parameters.candidate_id}}"}
+          - {name: DATASET_VERSION, value: "{{workflow.parameters.dataset_version}}"}
+          - {name: OPTUNA_STUDY_NAME, value: "safety-{{workflow.parameters.candidate_id}}"}
+          - {name: OPTUNA_STORAGE, value: "sqlite:////work/optuna/study.db"}
+          - {name: S3_BUCKET, value: mlops-safety-323974325951-ap-northeast-2}
+          - {name: AWS_PROFILE, value: roles-anywhere}
+          - {name: AWS_CONFIG_FILE, value: /var/run/aws-ra/config/config}
+          - {name: AWS_SDK_LOAD_CONFIG, value: "1"}
+          - {name: AWS_DEFAULT_REGION, value: ap-northeast-2}
+          - {name: AWS_REGION, value: ap-northeast-2}
+        resources:
+          requests: {cpu: 100m, memory: 256Mi}
+          limits: {memory: 1Gi}
+        volumeMounts: *common-mounts
+      outputs:
+        parameters:
+          - name: best-parameters
+            valueFrom:
+              path: /work/best_parameters.json
+
+    - name: final-training
+      inputs:
+        parameters:
+          - name: best-parameters
+      activeDeadlineSeconds: 14400
+      container:
+        image: 323974325951.dkr.ecr.ap-northeast-2.amazonaws.com/safety-mlops/trainer:sha-e78067fdc67b507f791aab30cfb0119961a03e04
+        imagePullPolicy: IfNotPresent
+        command: [python, /app/train_candidate.py]
+        env:
+          - name: DATASET_S3_URI
+            valueFrom: {configMapKeyRef: {name: training-candidate, key: s3_uri}}
+          - {name: DATASET_PATH, value: /work/dataset}
+          - {name: DATASET_VERSION, value: "{{workflow.parameters.dataset_version}}"}
+          - {name: CANDIDATE_ID, value: "{{workflow.parameters.candidate_id}}"}
+          - {name: WORKFLOW_ID, value: "{{workflow.name}}"}
+          - {name: HYPERPARAMETERS_JSON, value: "{{inputs.parameters.best-parameters}}"}
+          - {name: S3_BUCKET, value: mlops-safety-323974325951-ap-northeast-2}
+          - {name: MLFLOW_TRACKING_URI, value: "http://mlflow.mlops.svc.cluster.local:5000"}
+          - {name: BASE_MODEL, value: "{{workflow.parameters.base_model}}"}
+          - {name: EPOCHS, value: "{{workflow.parameters.epochs}}"}
+          - {name: AWS_PROFILE, value: roles-anywhere}
+          - {name: AWS_CONFIG_FILE, value: /var/run/aws-ra/config/config}
+          - {name: AWS_SDK_LOAD_CONFIG, value: "1"}
+          - {name: AWS_DEFAULT_REGION, value: ap-northeast-2}
+          - {name: AWS_REGION, value: ap-northeast-2}
+        resources:
+          requests: {cpu: "1", memory: 3Gi, nvidia.com/gpu: "1"}
+          limits: {memory: 6Gi, nvidia.com/gpu: "1"}
+        volumeMounts: *common-mounts
+
+    - name: evaluation
+      activeDeadlineSeconds: 3600
+      container:
+        image: 323974325951.dkr.ecr.ap-northeast-2.amazonaws.com/safety-mlops/trainer:sha-e78067fdc67b507f791aab30cfb0119961a03e04
+        imagePullPolicy: IfNotPresent
+        command: [python, /app/evaluate_candidate.py]
+        env:
+          - name: CANDIDATE_S3_URI
+            valueFrom: {configMapKeyRef: {name: training-candidate, key: candidate_s3_uri}}
+          - name: PRODUCTION_METADATA_URI
+            valueFrom: {configMapKeyRef: {name: safety-model-release, key: METADATA_URI}}
+          - {name: EVALUATION_STATUS_PATH, value: /work/evaluation_status.txt}
+          - {name: AWS_PROFILE, value: roles-anywhere}
+          - {name: AWS_CONFIG_FILE, value: /var/run/aws-ra/config/config}
+          - {name: AWS_SDK_LOAD_CONFIG, value: "1"}
+          - {name: AWS_DEFAULT_REGION, value: ap-northeast-2}
+          - {name: AWS_REGION, value: ap-northeast-2}
+        resources:
+          requests: {cpu: 500m, memory: 2Gi, nvidia.com/gpu: "1"}
+          limits: {memory: 4Gi, nvidia.com/gpu: "1"}
+        volumeMounts:
+          - {name: workflow-workspace, mountPath: /work}
+          - {name: evaluation-policy, mountPath: /policy, readOnly: true}
+          - {name: aws-ra-config, mountPath: /var/run/aws-ra/config, readOnly: true}
+          - {name: aws-ra-tls, mountPath: /var/run/aws-ra/tls, readOnly: true}
+          - {name: aws-signing-helper, mountPath: /usr/local/bin/aws_signing_helper, readOnly: true}
+      outputs:
+        parameters:
+          - name: evaluation-status
+            valueFrom:
+              path: /work/evaluation_status.txt
+
+    - name: tensorrt
+      activeDeadlineSeconds: 3600
+      container:
+        image: 323974325951.dkr.ecr.ap-northeast-2.amazonaws.com/safety-mlops/trainer@sha256:8104bcb4d55f6575346b5f2bcdfecbb62df3e6e8b63affbffc316a08e244bbbd
+        command: [python3, /app/model_operator.py]
+        env:
+          - {name: ACTION, value: convert}
+          - {name: AWS_PROFILE, value: roles-anywhere}
+          - {name: AWS_CONFIG_FILE, value: /var/run/aws-ra/config/config}
+          - {name: AWS_SDK_LOAD_CONFIG, value: "1"}
+          - {name: AWS_DEFAULT_REGION, value: ap-northeast-2}
+          - {name: AWS_REGION, value: ap-northeast-2}
+        resources:
+          requests: {cpu: 500m, memory: 2Gi, nvidia.com/gpu: "1"}
+          limits: {memory: 5Gi, nvidia.com/gpu: "1"}
+        volumeMounts: *common-mounts
+
+    - name: promotion
+      activeDeadlineSeconds: 1200
+      container:
+        image: 323974325951.dkr.ecr.ap-northeast-2.amazonaws.com/safety-mlops/trainer@sha256:8104bcb4d55f6575346b5f2bcdfecbb62df3e6e8b63affbffc316a08e244bbbd
+        command: [python3, /app/model_operator.py]
+        env:
+          - {name: ACTION, value: promote}
+          - {name: AWS_PROFILE, value: roles-anywhere}
+          - {name: AWS_CONFIG_FILE, value: /var/run/aws-ra/config/config}
+          - {name: AWS_SDK_LOAD_CONFIG, value: "1"}
+          - {name: AWS_DEFAULT_REGION, value: ap-northeast-2}
+          - {name: AWS_REGION, value: ap-northeast-2}
+        resources:
+          requests: {cpu: 100m, memory: 256Mi}
+          limits: {memory: 1Gi}
+        volumeMounts: *common-mounts
+
+    - name: rejected
+      container:
+        image: alpine:3.22
+        command: [sh, -c]
+        args: ["echo candidate-rejected-production-unchanged"]
+
+    - name: promoted-pending-git
+      container:
+        image: alpine:3.22
+        command: [sh, -c]
+        args: ["echo promoted-pending-git-production-unchanged"]
