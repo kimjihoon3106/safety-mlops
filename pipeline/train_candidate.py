@@ -46,10 +46,24 @@ def main() -> None:
     image_size = int(os.getenv("IMAGE_SIZE", "640"))
     batch = int(os.getenv("BATCH_SIZE", "8"))
     model_name = os.getenv("BASE_MODEL", "yolov8s.pt")
+    hyperparameters = {}
+    if os.getenv("HYPERPARAMETERS_JSON"):
+        hyperparameters = json.loads(os.environ["HYPERPARAMETERS_JSON"])
+    elif os.getenv("HYPERPARAMETERS_PATH"):
+        hyperparameters = json.loads(Path(os.environ["HYPERPARAMETERS_PATH"]).read_text())
+    image_size = int(hyperparameters.get("image_size", image_size))
+    batch = int(hyperparameters.get("batch_size", batch))
+    learning_rate = float(hyperparameters.get("learning_rate", 0.01))
+    optimizer = str(hyperparameters.get("optimizer", "auto"))
+    weight_decay = float(hyperparameters.get("weight_decay", 0.0005))
+    momentum = float(hyperparameters.get("momentum", 0.937))
     work = Path("/work")
     dataset = work / "dataset"
     output = work / "runs"
-    download_prefix(dataset_uri, dataset)
+    if os.getenv("DATASET_PATH"):
+        dataset = Path(os.environ["DATASET_PATH"])
+    else:
+        download_prefix(dataset_uri, dataset)
     descriptor_path = dataset / "data.yaml"
     descriptor = yaml.safe_load(descriptor_path.read_text())
     descriptor.update({
@@ -65,11 +79,17 @@ def main() -> None:
         mlflow.log_params({
             "dataset_version": dataset_version, "base_model": model_name,
             "epochs": epochs, "image_size": image_size, "batch_size": batch,
+            "learning_rate": learning_rate, "optimizer": optimizer,
+            "weight_decay": weight_decay, "momentum": momentum,
+            "run_type": "FINAL_TRAINING",
+            "candidate_id": os.getenv("CANDIDATE_ID", dataset_version),
+            "workflow_id": os.getenv("WORKFLOW_ID", "manual"),
         })
         result = YOLO(model_name).train(
             data=str(descriptor_path), epochs=epochs, imgsz=image_size, batch=batch,
             device=0, workers=2, project=str(output), name=run.info.run_id,
-            exist_ok=True, patience=15,
+            exist_ok=True, patience=15, lr0=learning_rate, optimizer=optimizer,
+            weight_decay=weight_decay, momentum=momentum,
         )
         metrics = {
             re.sub(r"[^A-Za-z0-9_. /:-]", "_", key): float(value)
@@ -89,6 +109,8 @@ def main() -> None:
             "status": "EVALUATING", "training_run_id": run.info.run_id,
             "dataset_version": dataset_version, "model_type": model_name,
             "epochs": epochs, "input_size": [image_size, image_size], "metrics": metrics,
+            "hyperparameters": hyperparameters,
+            "workflow_id": os.getenv("WORKFLOW_ID", "manual"),
         }
         metadata_path = work / "candidate_metadata.json"
         metadata_path.write_text(json.dumps(metadata, indent=2) + "\n")
@@ -105,4 +127,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

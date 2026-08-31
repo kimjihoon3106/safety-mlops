@@ -128,6 +128,8 @@ def main() -> None:
     }
     report_path = work / "evaluation_report.json"
     report_path.write_text(json.dumps(report, indent=2) + "\n")
+    status_path = Path(os.getenv("EVALUATION_STATUS_PATH", "/work/evaluation_status.txt"))
+    status_path.write_text(report["status"] + "\n")
     s3.upload_file(str(report_path), bucket, f"{prefix}/evaluation_report.json")
     patch_candidate({
         "status": report["status"],
