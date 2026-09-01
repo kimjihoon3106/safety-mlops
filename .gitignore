@@ -4,6 +4,7 @@
 !.env.example
 .kube/
 .codex-tmp/
+troubleshooting.md
 outputs/
 data/
 *.pt
@@ -14,4 +15,3 @@ data/
 *.pem
 __pycache__/
 *.pyc
-
