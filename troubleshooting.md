@@ -711,7 +711,9 @@ Production smoke: HTTP 200, model v1, detection 5건
 
 MLflow 베이스 이미지의 구형 glibc와 공식 helper 바이너리가 호환되지 않는 문제가 있었다. Ubuntu 20.04(glibc 2.31) 빌더에서 `aws_signing_helper` v1.8.5를 CGO로 컴파일해 MLflow 이미지에 포함했고, 해당 Pod 안에서 STS Role identity와 S3 artifact 기록을 확인했다.
 
-Training/Evaluation/Model Operator용 대형 CUDA trainer 이미지는 인증 검증용 Pod에서도 압축 해제 중 노드 ephemeral storage 임계값에 도달했다. 따라서 이 세 workload의 실제 이미지 기반 재검증과 기존 장기 credential 삭제는 보류한다. 현재 `aws-credentials` Secret과 서버 장기 credential은 fallback 용도로 남아 있지만 새 workload manifest에서는 참조하지 않는다. 디스크를 추가 확보한 뒤 세 Job의 S3 접근을 검증하고, 마지막으로 Kubernetes Secret과 `~/.aws/credentials`를 제거해야 한다. Root Access Key 자체는 AWS Root 계정의 Security Credentials 화면에서 사용자가 최종 삭제해야 한다.
+디스크 확장 후 최종 CUDA Trainer와 Model Operator 이미지를 사용하는 별도 검증 Pod를 실행했다. Evaluation은 `artifacts/roles-anywhere-validation/`, Model Operator는 `models/roles-anywhere-validation/` prefix에서 각각 임시 객체의 put, head, delete를 성공했고 STS ARN은 모두 `assumed-role/safety-mlops-k3s`였다. 검증 객체와 Pod는 즉시 삭제했다.
+
+모든 Deployment, CronJob, Job, Pod manifest에서 `aws-credentials`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` 참조가 없음을 확인했다. Kubernetes `aws-credentials` Secret은 이미 존재하지 않았으며 `/home/ubuntu/.aws/credentials`에 남아 있던 `[default]` 장기 Access Key 파일을 삭제했다. 삭제 후 Roles Anywhere 경로만 사용하는 ECR refresher Job을 재실행해 `ecr-registry` Secret 교체가 성공하는 것도 확인했다. AWS IAM User 또는 Root Access Key 자체의 비활성화·삭제는 계정 소유자가 AWS Security Credentials에서 최종 확인해야 한다.
 
 ## 19. Argo Workflows 및 Optuna HPO 도입
 
