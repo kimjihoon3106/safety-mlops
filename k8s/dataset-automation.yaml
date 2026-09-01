@@ -86,7 +86,10 @@ spec:
                   value: ap-northeast-2
                 - name: AWS_REGION
                   value: ap-northeast-2
+                - name: DATASET_QUALITY_POLICY_PATH
+                  value: /policy/policy.yaml
               volumeMounts:
+                - {name: dataset-quality-policy, mountPath: /policy, readOnly: true}
                 - {name: aws-ra-config, mountPath: /var/run/aws-ra/config, readOnly: true}
                 - {name: aws-ra-tls, mountPath: /var/run/aws-ra/tls, readOnly: true}
                 - {name: aws-signing-helper, mountPath: /usr/local/bin/aws_signing_helper, readOnly: true}
@@ -97,6 +100,7 @@ spec:
                 limits:
                   memory: 512Mi
           volumes:
+            - {name: dataset-quality-policy, configMap: {name: safety-dataset-quality-policy}}
             - {name: aws-ra-config, configMap: {name: aws-roles-anywhere-config}}
             - {name: aws-ra-tls, secret: {secretName: aws-roles-anywhere-x509, defaultMode: 288}}
             - {name: aws-signing-helper, hostPath: {path: /usr/local/bin/aws_signing_helper, type: File}}

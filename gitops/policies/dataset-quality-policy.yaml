@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: safety-dataset-quality-policy
+  namespace: mlops
+data:
+  policy.yaml: |
+    empty_label_ratio:
+      warning: 0.10
+      error: 0.30
+    dataset_size_change:
+      warning_percent: 30
+    class_schema:
+      change: manual_review
+    class_distribution:
+      warning_min_percent: 1
+      warning_max_percent: 80
+    leakage:
+      train_valid: error
+      train_test: error
+      valid_test: error
+    small_image:
+      min_width: 320
+      min_height: 320
+      warning_ratio: 0.05
+    bounding_boxes:
+      tiny_area: 0.0001
+      large_area: 0.90
+      extreme_aspect_ratio: 20
+      warning_ratio: 0.01
+    duplicates:
+      within_split: warning
+      max_reported_examples: 20

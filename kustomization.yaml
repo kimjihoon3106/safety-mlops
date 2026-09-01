@@ -13,3 +13,4 @@ resources:
   - k8s/smoke-test.yaml
   - gitops/production/model-release.yaml
   - gitops/policies/evaluation-policy.yaml
+  - gitops/policies/dataset-quality-policy.yaml
