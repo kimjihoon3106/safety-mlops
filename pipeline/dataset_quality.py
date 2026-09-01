@@ -89,7 +89,8 @@ def analyze_dataset_quality(
     bbox_areas: list[float] = []
     bbox_aspects: list[float] = []
     empty_images = 0
-    total_labels = 0
+    total_label_files = 0
+    labeled_images = 0
 
     for split in SPLITS:
         images = sorted(path for path in (root / split / "images").iterdir() if path.is_file())
@@ -104,11 +105,13 @@ def analyze_dataset_quality(
             image_hashes[sha256_file(image_path)].append({"split": split, "path": relative})
 
             label_path = root / split / "labels" / f"{image_path.stem}.txt"
+            if label_path.is_file():
+                total_label_files += 1
             lines = [] if not label_path.is_file() else [line for line in label_path.read_text().splitlines() if line.strip()]
             if not lines:
                 empty_images += 1
                 continue
-            total_labels += 1
+            labeled_images += 1
             for line in lines:
                 class_id_text, _, _, width_text, height_text = line.split()
                 class_id = int(class_id_text)
@@ -222,7 +225,11 @@ def analyze_dataset_quality(
         "dataset_version": dataset_version,
         "previous_dataset_version": None if previous is None else previous.get("dataset_version"),
         "summary": {"status": status, "warnings": counts["WARNING"], "errors": counts["ERROR"], "manual_reviews": counts["MANUAL_REVIEW"]},
-        "dataset": {"image_count": total_images, "label_count": total_labels, "annotation_count": total_annotations, "splits": split_images},
+        "dataset": {
+            "image_count": total_images, "label_count": total_label_files,
+            "labeled_image_count": labeled_images, "annotation_count": total_annotations,
+            "splits": split_images,
+        },
         "class_distribution": distribution,
         "empty_labels": {"image_count": empty_images, "ratio": round(empty_ratio, 6)},
         "dataset_size_change": {
