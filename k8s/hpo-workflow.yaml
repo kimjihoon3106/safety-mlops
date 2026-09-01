@@ -14,7 +14,7 @@ spec:
     mutexes:
       - name: safety-ml-lifecycle
   podGC:
-    strategy: OnWorkflowCompletion
+    strategy: OnWorkflowSuccess
   ttlStrategy:
     secondsAfterCompletion: 604800
     secondsAfterFailure: 604800
