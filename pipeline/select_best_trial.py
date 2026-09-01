@@ -21,7 +21,9 @@ def main() -> None:
         "best_trial": best.number,
         "objective_map50_95": best.value,
         "parameters": best.params,
-        "completed_trials": len([t for t in study.trials if t.state.is_finished()]),
+        "completed_trials": len([
+            t for t in study.trials if t.state == optuna.trial.TrialState.COMPLETE
+        ]),
     }
     destination = Path("/work/best_parameters.json")
     destination.write_text(json.dumps(best.params, separators=(",", ":")))

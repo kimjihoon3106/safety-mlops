@@ -176,6 +176,7 @@ spec:
           - {name: CANDIDATE_ID, value: "{{workflow.parameters.candidate_id}}"}
           - {name: DATASET_VERSION, value: "{{workflow.parameters.dataset_version}}"}
           - {name: WORKFLOW_ID, value: "{{workflow.name}}"}
+          - {name: REQUESTED_TRIAL, value: "{{inputs.parameters.requested-trial}}"}
           - {name: GIT_COMMIT, value: "{{workflow.parameters.git_commit}}"}
           - {name: OPTUNA_STUDY_NAME, value: "safety-{{workflow.parameters.candidate_id}}"}
           - {name: OPTUNA_STORAGE, value: "sqlite:////work/optuna/study.db"}

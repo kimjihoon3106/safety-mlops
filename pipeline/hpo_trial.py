@@ -9,7 +9,7 @@ import boto3
 import mlflow
 import optuna
 import yaml
-from ultralytics import YOLO
+from ultralytics import YOLO, settings
 
 
 def metric(metrics: dict, *needles: str) -> float:
@@ -30,6 +30,7 @@ def main() -> None:
     candidate_id = os.environ["CANDIDATE_ID"]
     dataset_version = os.environ["DATASET_VERSION"]
     workflow_id = os.environ["WORKFLOW_ID"]
+    requested_trial = int(os.environ["REQUESTED_TRIAL"])
     study_name = os.environ["OPTUNA_STUDY_NAME"]
     storage = os.getenv("OPTUNA_STORAGE", "sqlite:////work/optuna/study.db")
     Path("/work/optuna").mkdir(parents=True, exist_ok=True)
@@ -45,7 +46,9 @@ def main() -> None:
 
     study = optuna.create_study(
         study_name=study_name, storage=storage, direction="maximize", load_if_exists=True,
-        sampler=optuna.samplers.TPESampler(seed=20260831),
+        # Each Argo trial is a separate process. A per-process seed prevents all
+        # startup trials from replaying the same first TPE suggestion.
+        sampler=optuna.samplers.TPESampler(seed=20260831 + requested_trial),
     )
     trial = study.ask()
     params = {
@@ -63,6 +66,7 @@ def main() -> None:
 
     mlflow.set_tracking_uri(os.environ["MLFLOW_TRACKING_URI"])
     mlflow.set_experiment(f"safety-hpo-{candidate_id}")
+    settings.update({"mlflow": False})
     try:
         with mlflow.start_run(run_name=f"trial-{trial.number}") as run:
             mlflow.log_params({
