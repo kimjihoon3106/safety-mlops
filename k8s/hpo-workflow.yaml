@@ -116,6 +116,7 @@ spec:
         args:
           - |
             import os
+            from concurrent.futures import ThreadPoolExecutor
             from pathlib import Path
             import boto3
             if os.environ["HPO_PARALLELISM"] != "1":
@@ -125,18 +126,22 @@ spec:
             root = Path("/work/dataset")
             root.mkdir(parents=True, exist_ok=True)
             s3 = boto3.client("s3")
-            count = 0
+            objects = []
             for page in s3.get_paginator("list_objects_v2").paginate(Bucket=bucket, Prefix=prefix):
                 for item in page.get("Contents", []):
                     relative = item["Key"][len(prefix):].lstrip("/")
                     if relative:
-                        target = root / relative
-                        target.parent.mkdir(parents=True, exist_ok=True)
-                        s3.download_file(bucket, item["Key"], str(target))
-                        count += 1
-            if count == 0 or not (root / "data.yaml").is_file():
+                        objects.append((item["Key"], relative))
+            def download(entry):
+                key, relative = entry
+                target = root / relative
+                target.parent.mkdir(parents=True, exist_ok=True)
+                s3.download_file(bucket, key, str(target))
+            with ThreadPoolExecutor(max_workers=min(16, len(objects) or 1)) as pool:
+                list(pool.map(download, objects))
+            if not objects or not (root / "data.yaml").is_file():
                 raise RuntimeError("dataset is empty or data.yaml is missing")
-            print(f"dataset_objects={count}")
+            print(f"dataset_objects={len(objects)}")
         env:
           - name: DATASET_S3_URI
             value: "{{workflow.parameters.dataset_s3_uri}}"
