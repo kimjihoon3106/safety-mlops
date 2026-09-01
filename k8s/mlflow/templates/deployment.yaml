@@ -29,6 +29,8 @@ spec:
             - 0.0.0.0
             - --port
             - "{{ .Values.service.port }}"
+            - --allowed-hosts
+            - "mlflow,mlflow.mlops,mlflow.mlops.svc,mlflow.mlops.svc.cluster.local,localhost,127.0.0.1"
             - --serve-artifacts
             - --artifacts-destination
             - s3://{{ required "s3.bucket is required" .Values.s3.bucket }}/{{ .Values.s3.artifactPrefix }}
