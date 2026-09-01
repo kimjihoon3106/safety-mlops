@@ -751,6 +751,6 @@ ECR 이미지 pull 과정에서는 Workflow Pod에 `ecr-registry`가 전달되�
 
 MLflow 3.5의 DNS rebinding 보호가 Kubernetes 내부 `Host` 헤더를 거부해 API가 403을 반환했다. `--allowed-hosts`에 `mlflow.mlops.svc.cluster.local:5000` 등 실제 내부 DNS 이름과 포트 조합만 명시적으로 허용해 해결했다. 전체 와일드카드는 사용하지 않았다.
 
-Production에 영향을 주지 않는 `HPO_ONLY` 모드로 실제 Roboflow v30 데이터셋을 검증했다. Quadro RTX 5000 한 장을 요청하는 YOLOv8n 1-epoch trial 두 개가 실행됐고 Workflow `safety-hpo-validation-v30-final-z5js2`는 `Succeeded`가 됐다. MLflow에는 두 run이 생성됐으며 S3에는 각 `trial_result.json`, `best_trial.json`, Optuna DB snapshot이 저장됐다. 검증 best mAP50-95는 약 `0.005884`로, 1 epoch 연결 검증값일 뿐 Production 후보 성능은 아니다.
+Production에 영향을 주지 않는 `HPO_ONLY` 모드로 실제 Roboflow v30 데이터셋을 검증했다. 최종 ECR image digest `sha256:23452f...e452f548`를 사용해 Quadro RTX 5000 한 장을 요청하는 YOLOv8n 1-epoch trial 두 개를 실행했고 Workflow `safety-hpo-validation-v30-image-f9mhb`는 `Succeeded`가 됐다. MLflow에는 두 run이 생성됐으며 S3에는 각 `trial_result.json`, `best_trial.json`, Optuna DB snapshot이 저장됐다. 서로 다른 SGD와 AdamW 조합이 실행됐고, 검증 best trial은 AdamW·batch 4·image size 512에서 mAP50-95 약 `0.049079`였다. 이는 1 epoch 파이프라인 연결 검증값일 뿐 Production 후보 성능은 아니다.
 
 별도 Pod로 실행되는 각 Optuna trial이 동일한 고정 seed를 초기화해 같은 조합을 제안하는 문제도 발견했다. `REQUESTED_TRIAL` 번호를 seed에 더해 trial별 탐색을 다르게 만들고, Ultralytics의 중복 MLflow autologging을 비활성화했다. S3 데이터셋 다운로드는 최대 16개 worker로 병렬화했다. 실제 신규 Candidate가 없으므로 Final Training, TensorRT Promotion, Git 버전 변경은 실행하지 않았으며 Production은 계속 v1이다.
