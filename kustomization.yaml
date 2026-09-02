@@ -4,6 +4,7 @@ resources:
   - k8s/aws-roles-anywhere.yaml
   - k8s/argo-workflows-rbac.yaml
   - k8s/hpo-workflow.yaml
+  - k8s/optuna-postgresql.yaml
   - k8s/inference-api.yaml
   - k8s/triton.yaml
   - k8s/dataset-automation.yaml

@@ -179,7 +179,12 @@ spec:
           - {name: REQUESTED_TRIAL, value: "{{inputs.parameters.requested-trial}}"}
           - {name: GIT_COMMIT, value: "{{workflow.parameters.git_commit}}"}
           - {name: OPTUNA_STUDY_NAME, value: "safety-{{workflow.parameters.candidate_id}}"}
-          - {name: OPTUNA_STORAGE, value: "sqlite:////work/optuna/study.db"}
+          - name: OPTUNA_STORAGE
+            valueFrom: {secretKeyRef: {name: optuna-postgresql, key: database-url}}
+          - {name: OPTUNA_SAMPLER_SEED, value: "20260831"}
+          - {name: MODEL_TRAINING_SEED, value: "20260831"}
+          - {name: OPTUNA_HEARTBEAT_INTERVAL, value: "60"}
+          - {name: OPTUNA_HEARTBEAT_GRACE_PERIOD, value: "180"}
           - {name: DATASET_PATH, value: /work/dataset}
           - {name: BASE_MODEL, value: "{{workflow.parameters.base_model}}"}
           - {name: HPO_EPOCHS, value: "{{workflow.parameters.hpo_epochs}}"}
@@ -205,7 +210,8 @@ spec:
           - {name: CANDIDATE_ID, value: "{{workflow.parameters.candidate_id}}"}
           - {name: DATASET_VERSION, value: "{{workflow.parameters.dataset_version}}"}
           - {name: OPTUNA_STUDY_NAME, value: "safety-{{workflow.parameters.candidate_id}}"}
-          - {name: OPTUNA_STORAGE, value: "sqlite:////work/optuna/study.db"}
+          - name: OPTUNA_STORAGE
+            valueFrom: {secretKeyRef: {name: optuna-postgresql, key: database-url}}
           - {name: S3_BUCKET, value: mlops-safety-323974325951-ap-northeast-2}
           - {name: AWS_PROFILE, value: roles-anywhere}
           - {name: AWS_CONFIG_FILE, value: /var/run/aws-ra/config/config}
