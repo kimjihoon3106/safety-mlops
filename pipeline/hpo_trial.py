@@ -90,6 +90,7 @@ def main() -> None:
     }
     base_model = os.getenv("BASE_MODEL", "yolov8s.pt")
     epochs = int(os.getenv("HPO_EPOCHS", "10"))
+    dataloader_workers = int(os.getenv("HPO_DATALOADER_WORKERS", "0"))
     output = Path("/work/hpo") / f"trial-{trial.number}"
     output.mkdir(parents=True, exist_ok=True)
 
@@ -105,6 +106,7 @@ def main() -> None:
                 "argo_sequence": requested_trial,
                 "trial_id": f"{workflow_id}-{trial.number}", "model": base_model,
                 "epochs": epochs, "run_type": "HPO_TRIAL",
+                "dataloader_workers": dataloader_workers,
                 "sampler_seed": SAMPLER_SEED, "model_training_seed": MODEL_SEED + trial.number,
                 "completed_trials_before_suggestion": completed_before_suggestion,
                 "gpu_visible_devices": os.getenv("NVIDIA_VISIBLE_DEVICES", "unknown"),
@@ -113,7 +115,7 @@ def main() -> None:
                 data=str(descriptor_path), epochs=epochs, imgsz=params["image_size"],
                 batch=params["batch_size"], optimizer=params["optimizer"],
                 lr0=params["learning_rate"], weight_decay=params["weight_decay"],
-                momentum=params["momentum"], device=0, workers=2,
+                momentum=params["momentum"], device=0, workers=dataloader_workers,
                 seed=MODEL_SEED + trial.number,
                 project=str(output), name=run.info.run_id, exist_ok=True, patience=5,
             )

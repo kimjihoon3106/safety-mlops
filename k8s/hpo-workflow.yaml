@@ -188,6 +188,7 @@ spec:
           - {name: DATASET_PATH, value: /work/dataset}
           - {name: BASE_MODEL, value: "{{workflow.parameters.base_model}}"}
           - {name: HPO_EPOCHS, value: "{{workflow.parameters.hpo_epochs}}"}
+          - {name: HPO_DATALOADER_WORKERS, value: "0"}
           - {name: S3_BUCKET, value: mlops-safety-323974325951-ap-northeast-2}
           - {name: MLFLOW_TRACKING_URI, value: "http://mlflow.mlops.svc.cluster.local:5000"}
           - {name: AWS_PROFILE, value: roles-anywhere}
