@@ -73,7 +73,7 @@ spec:
             withSequence:
               count: "{{workflow.parameters.hpo_trial_count}}"
           - name: select-best
-            depends: hpo-trial.Succeeded
+            depends: hpo-trial.Succeeded || hpo-trial.Failed || hpo-trial.Errored
             template: select-best
           - name: final-training
             depends: select-best.Succeeded
