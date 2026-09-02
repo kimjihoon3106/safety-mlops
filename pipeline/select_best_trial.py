@@ -8,10 +8,27 @@ import optuna
 
 
 def main() -> None:
+    storage = optuna.storages.RDBStorage(
+        url=os.environ["OPTUNA_STORAGE"],
+        heartbeat_interval=int(os.getenv("OPTUNA_HEARTBEAT_INTERVAL", "60")),
+        grace_period=int(os.getenv("OPTUNA_HEARTBEAT_GRACE_PERIOD", "180")),
+    )
     study = optuna.load_study(
         study_name=os.environ["OPTUNA_STUDY_NAME"],
-        storage=os.environ["OPTUNA_STORAGE"],
+        storage=storage,
     )
+    optuna.storages.fail_stale_trials(study)
+    completed = [
+        trial for trial in study.trials
+        if trial.state == optuna.trial.TrialState.COMPLETE
+    ]
+    if not completed:
+        states = {state.name: 0 for state in optuna.trial.TrialState}
+        for trial in study.trials:
+            states[trial.state.name] += 1
+        raise RuntimeError(
+            f"study {study.study_name!r} has no COMPLETE trials; states={states}"
+        )
     best = study.best_trial
     result = {
         "study_name": study.study_name,
@@ -22,9 +39,7 @@ def main() -> None:
         "best_trial": best.number,
         "objective_map50_95": best.value,
         "parameters": best.params,
-        "completed_trials": len([
-            t for t in study.trials if t.state == optuna.trial.TrialState.COMPLETE
-        ]),
+        "completed_trials": len(completed),
         "trials": [
             {
                 "number": trial.number,

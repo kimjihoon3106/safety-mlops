@@ -47,6 +47,7 @@ spec:
       - {name: hpo_epochs, value: "10"}
       - {name: hpo_trial_count, value: "6"}
       - {name: hpo_parallelism, value: "1"}
+      - {name: hpo_startup_trials, value: "1"}
       - {name: evaluation_policy_version, value: v1}
       - {name: git_commit, value: 6a90dcf5d156d8186c199bcb149ec81490ec7818}
 EOF

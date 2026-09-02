@@ -30,6 +30,7 @@ spec:
       - {name: hpo_epochs, value: "10"}
       - {name: hpo_trial_count, value: "6"}
       - {name: hpo_parallelism, value: "1"}
+      - {name: hpo_startup_trials, value: "1"}
       - {name: evaluation_policy_version, value: v1}
       - {name: git_commit, value: 292d6166c64b2a131e765982eca9c929378026ec}
       - {name: training_image_digest, value: "sha256:ba7ceda77294927e976b1c5aab5fe1bf0158f95339c24306292b7fe41c2ca4c6"}
@@ -182,6 +183,7 @@ spec:
           - name: OPTUNA_STORAGE
             valueFrom: {secretKeyRef: {name: optuna-postgresql, key: database-url}}
           - {name: OPTUNA_SAMPLER_SEED, value: "20260831"}
+          - {name: OPTUNA_N_STARTUP_TRIALS, value: "{{workflow.parameters.hpo_startup_trials}}"}
           - {name: MODEL_TRAINING_SEED, value: "20260831"}
           - {name: OPTUNA_HEARTBEAT_INTERVAL, value: "60"}
           - {name: OPTUNA_HEARTBEAT_GRACE_PERIOD, value: "180"}
@@ -213,6 +215,8 @@ spec:
           - {name: OPTUNA_STUDY_NAME, value: "safety-{{workflow.parameters.candidate_id}}"}
           - name: OPTUNA_STORAGE
             valueFrom: {secretKeyRef: {name: optuna-postgresql, key: database-url}}
+          - {name: OPTUNA_HEARTBEAT_INTERVAL, value: "60"}
+          - {name: OPTUNA_HEARTBEAT_GRACE_PERIOD, value: "180"}
           - {name: S3_BUCKET, value: mlops-safety-323974325951-ap-northeast-2}
           - {name: AWS_PROFILE, value: roles-anywhere}
           - {name: AWS_CONFIG_FILE, value: /var/run/aws-ra/config/config}

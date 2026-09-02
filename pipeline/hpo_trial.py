@@ -16,6 +16,7 @@ from ultralytics import YOLO, settings
 
 SAMPLER_SEED = int(os.getenv("OPTUNA_SAMPLER_SEED", "20260831"))
 MODEL_SEED = int(os.getenv("MODEL_TRAINING_SEED", "20260831"))
+N_STARTUP_TRIALS = int(os.getenv("OPTUNA_N_STARTUP_TRIALS", "1"))
 
 
 def heartbeat(storage: optuna.storages.RDBStorage, trial_id: int, stop: threading.Event) -> None:
@@ -65,7 +66,9 @@ def main() -> None:
         storage=storage,
         direction="maximize",
         load_if_exists=True,
-        sampler=optuna.samplers.TPESampler(seed=SAMPLER_SEED, n_startup_trials=1),
+        sampler=optuna.samplers.TPESampler(
+            seed=SAMPLER_SEED, n_startup_trials=N_STARTUP_TRIALS
+        ),
     )
     optuna.storages.fail_stale_trials(study)
     completed_before_suggestion = len([
@@ -73,7 +76,7 @@ def main() -> None:
     ])
     study.set_user_attr("sampler", "TPESampler")
     study.set_user_attr("sampler_seed", SAMPLER_SEED)
-    study.set_user_attr("n_startup_trials", 1)
+    study.set_user_attr("n_startup_trials", N_STARTUP_TRIALS)
     trial = study.ask()
     stop_heartbeat = threading.Event()
     heartbeat_thread = threading.Thread(
@@ -88,6 +91,17 @@ def main() -> None:
         "momentum": trial.suggest_float("momentum", 0.85, 0.95),
         "image_size": trial.suggest_categorical("image_size", [512, 640]),
     }
+    suggestion = {
+        "event": "optuna_suggestion",
+        "study_name": study.study_name,
+        "trial_number": trial.number,
+        "completed_trials_before_suggestion": completed_before_suggestion,
+        "sampler": "TPESampler",
+        "sampler_seed": SAMPLER_SEED,
+        "n_startup_trials": N_STARTUP_TRIALS,
+        "params": params,
+    }
+    print(json.dumps(suggestion, sort_keys=True), flush=True)
     base_model = os.getenv("BASE_MODEL", "yolov8s.pt")
     epochs = int(os.getenv("HPO_EPOCHS", "10"))
     dataloader_workers = int(os.getenv("HPO_DATALOADER_WORKERS", "0"))
@@ -108,6 +122,7 @@ def main() -> None:
                 "epochs": epochs, "run_type": "HPO_TRIAL",
                 "dataloader_workers": dataloader_workers,
                 "sampler_seed": SAMPLER_SEED, "model_training_seed": MODEL_SEED + trial.number,
+                "n_startup_trials": N_STARTUP_TRIALS,
                 "completed_trials_before_suggestion": completed_before_suggestion,
                 "gpu_visible_devices": os.getenv("NVIDIA_VISIBLE_DEVICES", "unknown"),
             })
@@ -131,6 +146,10 @@ def main() -> None:
             mlflow.log_metric("training_duration_seconds", training_duration)
             summary = {
                 "trial_number": trial.number, "params": params, "metrics": metrics,
+                "study_name": study.study_name,
+                "sampler": "TPESampler",
+                "sampler_seed": SAMPLER_SEED,
+                "n_startup_trials": N_STARTUP_TRIALS,
                 "objective_map50_95": objective,
                 "training_duration_seconds": training_duration,
                 "completed_trials_before_suggestion": completed_before_suggestion,
